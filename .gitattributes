@@ -1,0 +1,8 @@
+# Keep LF in the repo and in checkouts so bash scripts and the Makefile work on macOS/Linux;
+# PowerShell scripts keep CRLF for Windows PowerShell 5.1.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.mp3 binary
+*.ogg binary

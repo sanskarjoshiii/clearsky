@@ -1,0 +1,33 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# sam
+infra/.aws-sam/
+infra/.layer/
+samconfig.local.toml
+
+# node / dashboard
+node_modules/
+dashboard/dist/
+
+# data
+data/raw/
+
+# os / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

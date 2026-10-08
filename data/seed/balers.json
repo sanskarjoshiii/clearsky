@@ -1,0 +1,112 @@
+[
+  {
+    "acres_per_day": 15.0,
+    "active": true,
+    "baler_id": "B01",
+    "base_village_id": "V002",
+    "chc_name": "Bhawanigarh Custom Hiring Centre (demo)",
+    "lat": 30.273143,
+    "lng": 76.040302,
+    "operator_name": "Gurdeep Grewal",
+    "radius_km": 18.0
+  },
+  {
+    "acres_per_day": 13.0,
+    "active": true,
+    "baler_id": "B02",
+    "base_village_id": "V011",
+    "chc_name": "Balad Kalan Custom Hiring Centre (demo)",
+    "lat": 30.304877,
+    "lng": 76.010132,
+    "operator_name": "Harpreet Cheema",
+    "radius_km": 24.0
+  },
+  {
+    "acres_per_day": 15.0,
+    "active": true,
+    "baler_id": "B03",
+    "base_village_id": "V001",
+    "chc_name": "Sangrur Custom Hiring Centre (demo)",
+    "lat": 30.251572,
+    "lng": 75.843357,
+    "operator_name": "Jaswinder Gill",
+    "radius_km": 23.0
+  },
+  {
+    "acres_per_day": 18.0,
+    "active": true,
+    "baler_id": "B04",
+    "base_village_id": "V018",
+    "chc_name": "Ghabdan Custom Hiring Centre (demo)",
+    "lat": 30.284515,
+    "lng": 75.807874,
+    "operator_name": "Kuldeep Cheema",
+    "radius_km": 18.0
+  },
+  {
+    "acres_per_day": 14.0,
+    "active": true,
+    "baler_id": "B05",
+    "base_village_id": "V003",
+    "chc_name": "Sunam Custom Hiring Centre (demo)",
+    "lat": 30.127932,
+    "lng": 75.805852,
+    "operator_name": "Manjit Singh",
+    "radius_km": 21.0
+  },
+  {
+    "acres_per_day": 13.0,
+    "active": true,
+    "baler_id": "B06",
+    "base_village_id": "V024",
+    "chc_name": "Sheron Custom Hiring Centre (demo)",
+    "lat": 30.095777,
+    "lng": 75.77286,
+    "operator_name": "Paramjit Sandhu",
+    "radius_km": 16.0
+  },
+  {
+    "acres_per_day": 16.0,
+    "active": true,
+    "baler_id": "B07",
+    "base_village_id": "V004",
+    "chc_name": "Dhuri Custom Hiring Centre (demo)",
+    "lat": 30.365474,
+    "lng": 75.872971,
+    "operator_name": "Rajinder Sandhu",
+    "radius_km": 15.0
+  },
+  {
+    "acres_per_day": 13.0,
+    "active": true,
+    "baler_id": "B08",
+    "base_village_id": "V005",
+    "chc_name": "Dirba Custom Hiring Centre (demo)",
+    "lat": 30.065474,
+    "lng": 75.996999,
+    "operator_name": "Sukhwinder Brar",
+    "radius_km": 23.0
+  },
+  {
+    "acres_per_day": 15.0,
+    "active": true,
+    "baler_id": "B09",
+    "base_village_id": "V006",
+    "chc_name": "Lehragaga Custom Hiring Centre (demo)",
+    "lat": 29.943618,
+    "lng": 75.962941,
+    "operator_name": "Balwinder Sandhu",
+    "radius_km": 16.0
+  },
+  {
+    "acres_per_day": 13.0,
+    "active": true,
+    "baler_id": "B10",
+    "base_village_id": "V007",
+    "chc_name": "Moonak Custom Hiring Centre (demo)",
+    "lat": 29.830268,
+    "lng": 76.102195,
+    "operator_name": "Hardeep Grewal",
+    "radius_km": 18.0
+  }
+]

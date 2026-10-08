@@ -1,0 +1,316 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ClearSky - WhatsApp-first straw pickup booking (farmers) with dashboards for officers, buyers and
+  baler operators. Phases 0-3: data layer, buckets, health API, FIRMS ingest. Deploy only with
+  explicit team approval.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  BedrockModelId:
+    Type: String
+    Default: ""
+    Description: Bedrock model or inference-profile ID chosen by the team (used from Phase 4).
+  DemoMode:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    Timeout: 30
+    MemorySize: 512
+    CodeUri: ../backend/src
+    Layers:
+      - !Ref DependenciesLayer
+    Tracing: Active
+    Environment:
+      Variables:
+        STAGE: !Ref Stage
+        TABLE_PREFIX: !Sub "${AWS::StackName}-"
+        DATA_BUCKET: !Ref DataBucket
+        MEDIA_BUCKET: !Ref MediaBucket
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        DEMO_MODE: !Ref DemoMode
+        POWERTOOLS_SERVICE_NAME: clearsky
+        LOG_LEVEL: INFO
+
+Resources:
+  # Third-party Python dependencies, pre-built for Linux arm64 by `make layer` (uv pip install
+  # --python-platform aarch64-manylinux_2_28). Function CodeUri then holds only our own source.
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-deps"
+      ContentUri: .layer/
+      CompatibleRuntimes: [python3.12]
+      CompatibleArchitectures: [arm64]
+      RetentionPolicy: Delete
+
+  # ------------------------------------------------------------------ API
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Description: ClearSky HTTP API (webhook and dashboard routes are added in Phases 4-5)
+
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.health.handler
+      Description: GET /health liveness check
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SettingsTable
+      Events:
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /health
+            Method: GET
+
+  FirmsIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.firms_ingest.handler
+      Description: Recompute village fire-history scores from the FIRMS layer in S3 (manual invoke)
+      Timeout: 120
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref DataBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VillagesTable
+
+  # -------------------------------------------------------------- storage
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-voice-media
+            Status: Enabled
+            ExpirationInDays: 7
+
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ------------------------------------------------------------- DynamoDB
+  # Must match backend/src/clearsky/repo/schema.py (enforced by tests/test_template_schema.py).
+  VillagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Villages"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: village_id, AttributeType: S }
+        - { AttributeName: district, AttributeType: S }
+      KeySchema:
+        - { AttributeName: village_id, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: district-index
+          KeySchema:
+            - { AttributeName: district, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+
+  FarmersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Farmers"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: phone, AttributeType: S }
+        - { AttributeName: village_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: phone, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: village-index
+          KeySchema:
+            - { AttributeName: village_id, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+
+  FieldsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Fields"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: field_id, AttributeType: S }
+        - { AttributeName: village_id, AttributeType: S }
+        - { AttributeName: harvest_date, AttributeType: S }
+        - { AttributeName: phone, AttributeType: S }
+        - { AttributeName: status, AttributeType: S }
+        - { AttributeName: risk_score, AttributeType: N }
+      KeySchema:
+        - { AttributeName: field_id, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: village-index
+          KeySchema:
+            - { AttributeName: village_id, KeyType: HASH }
+            - { AttributeName: harvest_date, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: farmer-index
+          KeySchema:
+            - { AttributeName: phone, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+        - IndexName: status-index
+          KeySchema:
+            - { AttributeName: status, KeyType: HASH }
+            - { AttributeName: risk_score, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+
+  BalersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Balers"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: baler_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: baler_id, KeyType: HASH }
+
+  BalerDaysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-BalerDays"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: baler_id, AttributeType: S }
+        - { AttributeName: date, AttributeType: S }
+      KeySchema:
+        - { AttributeName: baler_id, KeyType: HASH }
+        - { AttributeName: date, KeyType: RANGE }
+
+  BuyersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Buyers"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: buyer_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: buyer_id, KeyType: HASH }
+
+  BookingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Bookings"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: booking_id, AttributeType: S }
+        - { AttributeName: baler_id, AttributeType: S }
+        - { AttributeName: date, AttributeType: S }
+        - { AttributeName: field_id, AttributeType: S }
+        - { AttributeName: buyer_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: booking_id, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: baler-date-index
+          KeySchema:
+            - { AttributeName: baler_id, KeyType: HASH }
+            - { AttributeName: date, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: field-index
+          KeySchema:
+            - { AttributeName: field_id, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+        - IndexName: buyer-index
+          KeySchema:
+            - { AttributeName: buyer_id, KeyType: HASH }
+            - { AttributeName: date, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: date-index
+          KeySchema:
+            - { AttributeName: date, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+
+  ConversationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Conversations"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: phone, AttributeType: S }
+        - { AttributeName: ts, AttributeType: S }
+      KeySchema:
+        - { AttributeName: phone, KeyType: HASH }
+        - { AttributeName: ts, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ProcessedMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-ProcessedMessages"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: wa_message_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: wa_message_id, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  AlertsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Alerts"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: alert_id, AttributeType: S }
+        - { AttributeName: village_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: alert_id, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: village-index
+          KeySchema:
+            - { AttributeName: village_id, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+
+  SettingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Settings"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: key, AttributeType: S }
+      KeySchema:
+        - { AttributeName: key, KeyType: HASH }
+
+Outputs:
+  ApiUrl:
+    Description: Base URL of the HTTP API
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"
+  TablePrefix:
+    Description: Value for TABLE_PREFIX in .env when running scripts against this stack
+    Value: !Sub "${AWS::StackName}-"
+  DataBucketName:
+    Value: !Ref DataBucket
+  MediaBucketName:
+    Value: !Ref MediaBucket
+  FirmsIngestFunctionName:
+    Value: !Ref FirmsIngestFunction

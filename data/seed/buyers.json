@@ -1,0 +1,38 @@
+[
+  {
+    "buyer_id": "BY01",
+    "demand_tonnes": 3000.0,
+    "lat": 30.31815,
+    "lng": 75.904492,
+    "max_radius_km": 60.0,
+    "name": "Demo Pellet Plant",
+    "price_per_tonne": 1700.0,
+    "received_tonnes": 0.0,
+    "reserved_tonnes": 0.0,
+    "type": "pellet"
+  },
+  {
+    "buyer_id": "BY02",
+    "demand_tonnes": 4000.0,
+    "lat": 29.992219,
+    "lng": 75.904796,
+    "max_radius_km": 50.0,
+    "name": "Demo CBG Plant",
+    "price_per_tonne": 1500.0,
+    "received_tonnes": 0.0,
+    "reserved_tonnes": 0.0,
+    "type": "cbg"
+  },
+  {
+    "buyer_id": "BY03",
+    "demand_tonnes": 1500.0,
+    "lat": 30.332825,
+    "lng": 75.951294,
+    "max_radius_km": 40.0,
+    "name": "Demo Boiler Unit",
+    "price_per_tonne": 1900.0,
+    "received_tonnes": 0.0,
+    "reserved_tonnes": 0.0,
+    "type": "boiler"
+  }
+]

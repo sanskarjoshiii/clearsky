@@ -1,0 +1,44 @@
+{
+  "district": "Sangrur",
+  "notes": [
+    "Village list is a proposal pending team confirmation; coordinates are approximate (approx=true).",
+    "Buyers are fictional; prices are demo values.",
+    "Farmers are synthetic placeholders (synthetic=true) and must never be messaged."
+  ],
+  "prebook_field_ids": [
+    "F-SEED-011",
+    "F-SEED-012",
+    "F-SEED-013",
+    "F-SEED-015",
+    "F-SEED-016",
+    "F-SEED-017",
+    "F-SEED-018",
+    "F-SEED-020",
+    "F-SEED-023",
+    "F-SEED-025",
+    "F-SEED-026",
+    "F-SEED-027",
+    "F-SEED-029",
+    "F-SEED-036",
+    "F-SEED-041",
+    "F-SEED-042",
+    "F-SEED-044",
+    "F-SEED-050",
+    "F-SEED-052",
+    "F-SEED-055"
+  ],
+  "red_candidate_field_ids": [
+    "F-SEED-001",
+    "F-SEED-002",
+    "F-SEED-003",
+    "F-SEED-004",
+    "F-SEED-005",
+    "F-SEED-006",
+    "F-SEED-007",
+    "F-SEED-008",
+    "F-SEED-009",
+    "F-SEED-010"
+  ],
+  "reference_date": "2026-10-20",
+  "seed": 42
+}
