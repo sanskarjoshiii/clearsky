@@ -117,6 +117,7 @@ class Booking(_Model):
     farmer_payout: float = 0.0
     status: BookingStatus = BookingStatus.CONFIRMED
     created_at: datetime
+    done_at: datetime | None = None
 
 
 class Alert(_Model):
@@ -129,9 +130,17 @@ class Alert(_Model):
     created_at: datetime
 
 
+class Button(_Model):
+    id: str  # e.g. "confirm:F-123"; comes back as the reply id / template payload
+    title: str  # ≤ 20 characters (WhatsApp limit)
+
+
 class ConversationTurn(_Model):
     phone: str
     ts: str  # ISO timestamp, sort key
     role: str  # "user" | "assistant"
     text: str
+    kind: str = "text"  # text | buttons | audio | template | voice_in | location
+    buttons: list[Button] = PField(default_factory=list)
+    media_url: str | None = None
     ttl: int | None = None

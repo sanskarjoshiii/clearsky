@@ -25,10 +25,57 @@ from clearsky.repo import FarmersRepo, FieldsRepo
 HI, HINGLISH, PA, EN = "hi", "hinglish", "pa", "en"
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 _GURMUKHI = re.compile(r"[਀-੿]")
-_ENGLISH_HINTS = {"my", "the", "is", "will", "harvest", "please", "when", "what", "name", "village", "field",
-                  "hello", "hi", "book", "yes", "no", "cancel", "on", "of", "and", "i", "am", "acres"}
-_HINGLISH_HINTS = {"mera", "meri", "hai", "ko", "ka", "ki", "naam", "katega", "katai", "dhaan", "gaon", "pind",
-                   "kal", "parso", "haan", "nahi", "kab", "tareekh", "tarikh", "ji", "aur", "sat", "sri", "akal"}
+_ENGLISH_HINTS = {
+    "my",
+    "the",
+    "is",
+    "will",
+    "harvest",
+    "please",
+    "when",
+    "what",
+    "name",
+    "village",
+    "field",
+    "hello",
+    "hi",
+    "book",
+    "yes",
+    "no",
+    "cancel",
+    "on",
+    "of",
+    "and",
+    "i",
+    "am",
+    "acres",
+}
+_HINGLISH_HINTS = {
+    "mera",
+    "meri",
+    "hai",
+    "ko",
+    "ka",
+    "ki",
+    "naam",
+    "katega",
+    "katai",
+    "dhaan",
+    "gaon",
+    "pind",
+    "kal",
+    "parso",
+    "haan",
+    "nahi",
+    "kab",
+    "tareekh",
+    "tarikh",
+    "ji",
+    "aur",
+    "sat",
+    "sri",
+    "akal",
+}
 
 
 def detect_language(text: str) -> str:
@@ -60,16 +107,36 @@ MSG: dict[str, dict[str, str]] = {
         PA: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਜੀ 🌾 ਮੈਂ ClearSky ਹਾਂ। ਪਰਾਲੀ ਸਾੜਨ ਦੀ ਲੋੜ ਨਹੀਂ: ਅਸੀਂ ਬੇਲਰ ਭੇਜ ਕੇ ਖੇਤ ਸਾਫ਼ ਕਰਵਾਉਂਦੇ ਹਾਂ। ਆਪਣਾ ਨਾਂ, ਪਿੰਡ, ਕਿੰਨੇ ਏਕੜ ਅਤੇ ਕਟਾਈ ਦੀ ਤਾਰੀਖ ਦੱਸੋ।",
         EN: "Hello 🌾 I'm ClearSky. No need to burn straw: we send a baler to clear your field. Please tell me your name, village, how many acres, and the harvest date.",
     },
-    "ask_name": {HINGLISH: "Aapka naam kya hai ji?", HI: "आपका नाम क्या है जी?", PA: "ਤੁਹਾਡਾ ਨਾਂ ਕੀ ਹੈ ਜੀ?",
-                 EN: "What is your name?"},
-    "ask_village": {HINGLISH: "Aapka khet kis gaon mein hai?", HI: "आपका खेत किस गाँव में है?",
-                    PA: "ਤੁਹਾਡਾ ਖੇਤ ਕਿਹੜੇ ਪਿੰਡ ਵਿੱਚ ਹੈ?", EN: "Which village is your field in?"},
-    "ask_acres": {HINGLISH: "Kitne acre mein dhaan hai?", HI: "कितने एकड़ में धान है?", PA: "ਕਿੰਨੇ ਏਕੜ ਵਿੱਚ ਝੋਨਾ ਹੈ?",
-                  EN: "How many acres of paddy?"},
-    "ask_date": {HINGLISH: "Katai kis tareekh ko hogi?", HI: "कटाई किस तारीख को होगी?", PA: "ਕਟਾਈ ਕਿਸ ਤਾਰੀਖ ਨੂੰ ਹੋਵੇਗੀ?",
-                 EN: "On which date will you harvest?"},
-    "village_pick": {HINGLISH: "Kaunsa gaon? {options}", HI: "कौन सा गाँव? {options}", PA: "ਕਿਹੜਾ ਪਿੰਡ? {options}",
-                     EN: "Which village? {options}"},
+    "ask_name": {
+        HINGLISH: "Aapka naam kya hai ji?",
+        HI: "आपका नाम क्या है जी?",
+        PA: "ਤੁਹਾਡਾ ਨਾਂ ਕੀ ਹੈ ਜੀ?",
+        EN: "What is your name?",
+    },
+    "ask_village": {
+        HINGLISH: "Aapka khet kis gaon mein hai?",
+        HI: "आपका खेत किस गाँव में है?",
+        PA: "ਤੁਹਾਡਾ ਖੇਤ ਕਿਹੜੇ ਪਿੰਡ ਵਿੱਚ ਹੈ?",
+        EN: "Which village is your field in?",
+    },
+    "ask_acres": {
+        HINGLISH: "Kitne acre mein dhaan hai?",
+        HI: "कितने एकड़ में धान है?",
+        PA: "ਕਿੰਨੇ ਏਕੜ ਵਿੱਚ ਝੋਨਾ ਹੈ?",
+        EN: "How many acres of paddy?",
+    },
+    "ask_date": {
+        HINGLISH: "Katai kis tareekh ko hogi?",
+        HI: "कटाई किस तारीख को होगी?",
+        PA: "ਕਟਾਈ ਕਿਸ ਤਾਰੀਖ ਨੂੰ ਹੋਵੇਗੀ?",
+        EN: "On which date will you harvest?",
+    },
+    "village_pick": {
+        HINGLISH: "Kaunsa gaon? {options}",
+        HI: "कौन सा गाँव? {options}",
+        PA: "ਕਿਹੜਾ ਪਿੰਡ? {options}",
+        EN: "Which village? {options}",
+    },
     "village_unknown": {
         HINGLISH: "'{name}' gaon nahi mila. Paas ke bade gaon ya sheher ka naam bataiye.",
         HI: "'{name}' गाँव नहीं मिला। पास के बड़े गाँव या शहर का नाम बताइए।",
@@ -83,30 +150,54 @@ MSG: dict[str, dict[str, str]] = {
         EN: "✅ {name}, your {acres}-acre field will be cleared on {date}. Baler: {operator}. {money}",
     },
     "free": {HINGLISH: "Koi kharcha nahi.", HI: "कोई खर्चा नहीं।", PA: "ਕੋਈ ਖ਼ਰਚਾ ਨਹੀਂ।", EN: "Free of cost."},
-    "payout": {HINGLISH: "Aapko lagbhag ₹{amount} milenge (anumaan).", HI: "आपको लगभग ₹{amount} मिलेंगे (अनुमान)।",
-               PA: "ਤੁਹਾਨੂੰ ਲਗਭਗ ₹{amount} ਮਿਲਣਗੇ (ਅੰਦਾਜ਼ਾ)।", EN: "You will get about ₹{amount} (estimate)."},
+    "payout": {
+        HINGLISH: "Aapko lagbhag ₹{amount} milenge (anumaan).",
+        HI: "आपको लगभग ₹{amount} मिलेंगे (अनुमान)।",
+        PA: "ਤੁਹਾਨੂੰ ਲਗਭਗ ₹{amount} ਮਿਲਣਗੇ (ਅੰਦਾਜ਼ਾ)।",
+        EN: "You will get about ₹{amount} (estimate).",
+    },
     "no_slot": {
         HINGLISH: "Maaf kijiye, abhi koi baler khali nahi hai. Officer ko bata diya hai, jaldi sampark hoga. 🙏",
         HI: "माफ़ कीजिए, अभी कोई बेलर खाली नहीं है। अफ़सर को बता दिया है, जल्दी संपर्क होगा। 🙏",
         PA: "ਮਾਫ਼ ਕਰਨਾ, ਹੁਣੇ ਕੋਈ ਬੇਲਰ ਖਾਲੀ ਨਹੀਂ। ਅਫ਼ਸਰ ਨੂੰ ਦੱਸ ਦਿੱਤਾ ਹੈ, ਜਲਦੀ ਸੰਪਰਕ ਹੋਵੇਗਾ। 🙏",
         EN: "Sorry, no baler is free right now. An officer has been informed and will follow up. 🙏",
     },
-    "bad_input": {HINGLISH: "{problem} Dobara bataiye.", HI: "{problem} दोबारा बताइए।", PA: "{problem} ਦੁਬਾਰਾ ਦੱਸੋ।",
-                  EN: "{problem} Please tell me again."},
-    "status": {HINGLISH: "Aapki booking: {items}", HI: "आपकी बुकिंग: {items}", PA: "ਤੁਹਾਡੀ ਬੁਕਿੰਗ: {items}",
-               EN: "Your bookings: {items}"},
-    "no_bookings": {HINGLISH: "Abhi koi booking nahi hai. Acre aur katai ki tareekh bataiye.",
-                    HI: "अभी कोई बुकिंग नहीं है। एकड़ और कटाई की तारीख बताइए।",
-                    PA: "ਹੁਣੇ ਕੋਈ ਬੁਕਿੰਗ ਨਹੀਂ। ਏਕੜ ਅਤੇ ਕਟਾਈ ਦੀ ਤਾਰੀਖ ਦੱਸੋ।",
-                    EN: "You have no bookings yet. Tell me your acres and harvest date."},
-    "cancelled": {HINGLISH: "❌ Booking radd kar di gayi hai.", HI: "❌ बुकिंग रद्द कर दी गई है।",
-                  PA: "❌ ਬੁਕਿੰਗ ਰੱਦ ਕਰ ਦਿੱਤੀ ਗਈ ਹੈ।", EN: "❌ Your booking has been cancelled."},
-    "harvest_confirmed": {HINGLISH: "👍 Shukriya ji, katai note kar li. Baler tay samay par aayega.",
-                          HI: "👍 शुक्रिया जी, कटाई नोट कर ली। बेलर तय समय पर आएगा।",
-                          PA: "👍 ਧੰਨਵਾਦ ਜੀ, ਕਟਾਈ ਨੋਟ ਕਰ ਲਈ। ਬੇਲਰ ਸਮੇਂ ਸਿਰ ਆਵੇਗਾ।",
-                          EN: "👍 Thanks, harvest noted. The baler will come as scheduled."},
-    "ask_new_date": {HINGLISH: "Theek hai. Nayi katai ki tareekh bataiye.", HI: "ठीक है। नई कटाई की तारीख बताइए।",
-                     PA: "ਠੀਕ ਹੈ। ਨਵੀਂ ਕਟਾਈ ਦੀ ਤਾਰੀਖ ਦੱਸੋ।", EN: "OK. Please tell me the new harvest date."},
+    "bad_input": {
+        HINGLISH: "{problem} Dobara bataiye.",
+        HI: "{problem} दोबारा बताइए।",
+        PA: "{problem} ਦੁਬਾਰਾ ਦੱਸੋ।",
+        EN: "{problem} Please tell me again.",
+    },
+    "status": {
+        HINGLISH: "Aapki booking: {items}",
+        HI: "आपकी बुकिंग: {items}",
+        PA: "ਤੁਹਾਡੀ ਬੁਕਿੰਗ: {items}",
+        EN: "Your bookings: {items}",
+    },
+    "no_bookings": {
+        HINGLISH: "Abhi koi booking nahi hai. Acre aur katai ki tareekh bataiye.",
+        HI: "अभी कोई बुकिंग नहीं है। एकड़ और कटाई की तारीख बताइए।",
+        PA: "ਹੁਣੇ ਕੋਈ ਬੁਕਿੰਗ ਨਹੀਂ। ਏਕੜ ਅਤੇ ਕਟਾਈ ਦੀ ਤਾਰੀਖ ਦੱਸੋ।",
+        EN: "You have no bookings yet. Tell me your acres and harvest date.",
+    },
+    "cancelled": {
+        HINGLISH: "❌ Booking radd kar di gayi hai.",
+        HI: "❌ बुकिंग रद्द कर दी गई है।",
+        PA: "❌ ਬੁਕਿੰਗ ਰੱਦ ਕਰ ਦਿੱਤੀ ਗਈ ਹੈ।",
+        EN: "❌ Your booking has been cancelled.",
+    },
+    "harvest_confirmed": {
+        HINGLISH: "👍 Shukriya ji, katai note kar li. Baler tay samay par aayega.",
+        HI: "👍 शुक्रिया जी, कटाई नोट कर ली। बेलर तय समय पर आएगा।",
+        PA: "👍 ਧੰਨਵਾਦ ਜੀ, ਕਟਾਈ ਨੋਟ ਕਰ ਲਈ। ਬੇਲਰ ਸਮੇਂ ਸਿਰ ਆਵੇਗਾ।",
+        EN: "👍 Thanks, harvest noted. The baler will come as scheduled.",
+    },
+    "ask_new_date": {
+        HINGLISH: "Theek hai. Nayi katai ki tareekh bataiye.",
+        HI: "ठीक है। नई कटाई की तारीख बताइए।",
+        PA: "ਠੀਕ ਹੈ। ਨਵੀਂ ਕਟਾਈ ਦੀ ਤਾਰੀਖ ਦੱਸੋ।",
+        EN: "OK. Please tell me the new harvest date.",
+    },
     "off_topic": {
         HINGLISH: "Maaf kijiye, main sirf parali pickup mein madad karta hoon. Kitne acre aur katai kab hai?",
         HI: "माफ़ कीजिए, मैं सिर्फ़ पराली पिकअप में मदद करता हूँ। कितने एकड़ और कटाई कब है?",
@@ -115,9 +206,18 @@ MSG: dict[str, dict[str, str]] = {
     },
 }
 
-_ASK_SLOT = {key: slot for slot, key in
-             (("name", "ask_name"), ("village", "ask_village"), ("acres", "ask_acres"), ("date", "ask_date"),
-              ("date", "ask_new_date"), ("village", "village_pick"), ("village", "village_unknown"))}
+_ASK_SLOT = {
+    key: slot
+    for slot, key in (
+        ("name", "ask_name"),
+        ("village", "ask_village"),
+        ("acres", "ask_acres"),
+        ("date", "ask_date"),
+        ("date", "ask_new_date"),
+        ("village", "village_pick"),
+        ("village", "village_unknown"),
+    )
+}
 
 
 def t(key: str, lang: str, **kw: Any) -> str:
@@ -146,14 +246,25 @@ _DIGITS = str.maketrans("०१२३४५६७८९੦੧੨੩੪੫੬੭�
 _ACRE_WORDS = r"(?:acres?|ekad|ekar|ekr|killa|kille|kila|kile|एकड़|एकड|किल्ले|किल्ला|ਏਕੜ|ਕਿੱਲੇ|ਕਿੱਲਾ)"
 _ACRES_RE = re.compile(rf"(\d+(?:\.\d+)?)\s*{_ACRE_WORDS}", re.I)
 _MONTH_WORDS = {
-    "sep": 9, "sept": 9, "september": 9, "सितंबर": 9, "ਸਤੰਬਰ": 9,
-    "oct": 10, "october": 10, "अक्टूबर": 10, "ਅਕਤੂਬਰ": 10,
-    "nov": 11, "november": 11, "नवंबर": 11, "ਨਵੰਬਰ": 11,
+    "sep": 9,
+    "sept": 9,
+    "september": 9,
+    "सितंबर": 9,
+    "ਸਤੰਬਰ": 9,
+    "oct": 10,
+    "october": 10,
+    "अक्टूबर": 10,
+    "ਅਕਤੂਬਰ": 10,
+    "nov": 11,
+    "november": 11,
+    "नवंबर": 11,
+    "ਨਵੰਬਰ": 11,
 }
 _DAY_MONTH_RE = re.compile(r"(\d{1,2})\s*(?:st|nd|rd|th)?\s+(" + "|".join(_MONTH_WORDS) + r")\b", re.I)
 _MONTH_DAY_RE = re.compile(r"\b(" + "|".join(_MONTH_WORDS) + r")\s+(\d{1,2})\b", re.I)
-_TAREEKH_RE = re.compile(r"(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:tareekh|tarikh|tarik|tareek|tareeq|तारीख़?|ਤਾਰੀਖ|date)",
-                         re.I)
+_TAREEKH_RE = re.compile(
+    r"(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:tareekh|tarikh|tarik|tareek|tareeq|तारीख़?|ਤਾਰੀਖ|date)", re.I
+)
 _ISO_RE = re.compile(r"\b(20\d\d)-(\d{1,2})-(\d{1,2})\b")
 _SLASH_RE = re.compile(r"\b(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?\b")
 _RELATIVE = [
@@ -168,22 +279,124 @@ _NAME_RE = re.compile(
     re.I,
 )
 _NAME_TAIL = {"hai", "है", "ਹੈ", "ji", "जी", "ਜੀ", "aur", "and", "mera", "meri", "village", "gaon", "pind"}
-_YES = re.compile(r"^\s*(?:haan|haa|ha|han|yes|yeah|ok|okay|ji haan|ji|हाँ|हां|जी हाँ|ਹਾਂ|ਹਾਂ ਜੀ)\s*[.!]*\s*$", re.I)
+_YES = re.compile(
+    r"^\s*(?:haan|haa|ha|han|yes|yeah|ok|okay|ji haan|ji|हाँ|हां|जी हाँ|ਹਾਂ|ਹਾਂ ਜੀ)\s*[.!]*\s*$", re.I
+)
 _NO = re.compile(r"\b(?:nahi|nahin|nhi|no|not)\b|नहीं|ਨਹੀਂ", re.I)
 _CANCEL = re.compile(r"\b(?:cancel|radd|rad karo|band karo)\b|रद्द|ਰੱਦ", re.I)
 _STATUS = re.compile(r"\b(?:status|kab|when|booking|kab aayega|kab ayega)\b|कब|ਕਦੋਂ|ਬੁਕਿੰਗ|बुकिंग", re.I)
-_GREETING = re.compile(r"^\s*(?:hi|hello|hey|namaste|namaskar|sat sri akal|sasriakal|नमस्ते|सत श्री अकाल|ਸਤ ਸ੍ਰੀ ਅਕਾਲ)\W*$",
-                       re.I)
+_GREETING = re.compile(
+    r"^\s*(?:hi|hello|hey|namaste|namaskar|sat sri akal|sasriakal|नमस्ते|सत श्री अकाल|ਸਤ ਸ੍ਰੀ ਅਕਾਲ)\W*$", re.I
+)
 # Words that are never village names (Hinglish filler around the details).
 _NOT_VILLAGE = {
-    "mera", "meri", "mere", "hai", "ko", "ka", "ki", "ke", "mein", "me", "dhaan", "dhan", "paddy", "katega", "katai",
-    "kategi", "hogi", "hoga", "acre", "acres", "tareekh", "tarikh", "naam", "name", "khet", "field", "gaon", "pind",
-    "village", "my", "is", "the", "will", "be", "harvest", "harvested", "on", "in", "of", "and", "aur", "ji", "kal",
-    "aaj", "parso", "haan", "nahi", "please", "book", "karo", "oct", "nov", "october", "november", "date", "main",
-    "hoon", "hu", "hum", "from", "at", "am", "i", "sat", "sri", "akal", "hello", "namaste", "jhona",
-    "मेरा", "मेरी", "है", "को", "का", "की", "में", "धान", "कटेगा", "कटाई", "तारीख", "एकड़", "खेत", "गाँव", "गांव", "पिंड",
-    "नाम", "होगी", "और", "जी", "ਮੇਰਾ", "ਮੇਰੀ", "ਹੈ", "ਨੂੰ", "ਦਾ", "ਦੀ", "ਵਿੱਚ", "ਝੋਨਾ", "ਕਟਾਈ", "ਤਾਰੀਖ", "ਏਕੜ", "ਖੇਤ",
-    "ਪਿੰਡ", "ਨਾਂ", "ਨਾਮ", "ਹੋਵੇਗੀ", "ਅਤੇ", "ਜੀ",
+    "mera",
+    "meri",
+    "mere",
+    "hai",
+    "ko",
+    "ka",
+    "ki",
+    "ke",
+    "mein",
+    "me",
+    "dhaan",
+    "dhan",
+    "paddy",
+    "katega",
+    "katai",
+    "kategi",
+    "hogi",
+    "hoga",
+    "acre",
+    "acres",
+    "tareekh",
+    "tarikh",
+    "naam",
+    "name",
+    "khet",
+    "field",
+    "gaon",
+    "pind",
+    "village",
+    "my",
+    "is",
+    "the",
+    "will",
+    "be",
+    "harvest",
+    "harvested",
+    "on",
+    "in",
+    "of",
+    "and",
+    "aur",
+    "ji",
+    "kal",
+    "aaj",
+    "parso",
+    "haan",
+    "nahi",
+    "please",
+    "book",
+    "karo",
+    "oct",
+    "nov",
+    "october",
+    "november",
+    "date",
+    "main",
+    "hoon",
+    "hu",
+    "hum",
+    "from",
+    "at",
+    "am",
+    "i",
+    "sat",
+    "sri",
+    "akal",
+    "hello",
+    "namaste",
+    "jhona",
+    "मेरा",
+    "मेरी",
+    "है",
+    "को",
+    "का",
+    "की",
+    "में",
+    "धान",
+    "कटेगा",
+    "कटाई",
+    "तारीख",
+    "एकड़",
+    "खेत",
+    "गाँव",
+    "गांव",
+    "पिंड",
+    "नाम",
+    "होगी",
+    "और",
+    "जी",
+    "ਮੇਰਾ",
+    "ਮੇਰੀ",
+    "ਹੈ",
+    "ਨੂੰ",
+    "ਦਾ",
+    "ਦੀ",
+    "ਵਿੱਚ",
+    "ਝੋਨਾ",
+    "ਕਟਾਈ",
+    "ਤਾਰੀਖ",
+    "ਏਕੜ",
+    "ਖੇਤ",
+    "ਪਿੰਡ",
+    "ਨਾਂ",
+    "ਨਾਮ",
+    "ਹੋਵੇਗੀ",
+    "ਅਤੇ",
+    "ਜੀ",
 }
 
 
@@ -205,7 +418,7 @@ def parse_date(text: str, today: date, bare_number_is_day: bool = False) -> date
     day: int | None = None
     if m := _TAREEKH_RE.search(s):
         day = int(m.group(1))
-    elif (m := _SLASH_RE.search(s)) and not _ACRES_RE.search(s[m.start():m.end() + 8]):
+    elif (m := _SLASH_RE.search(s)) and not _ACRES_RE.search(s[m.start() : m.end() + 8]):
         y = int(m.group(3)) if m.group(3) else None
         if y is not None and y < 100:
             y += 2000
@@ -213,9 +426,8 @@ def parse_date(text: str, today: date, bare_number_is_day: bool = False) -> date
     for pattern, offset in _RELATIVE:
         if pattern.search(s):
             return today + timedelta(days=offset)
-    if day is None and bare_number_is_day:
-        if m := re.fullmatch(r"\s*(\d{1,2})\s*", _ACRES_RE.sub(" ", s)):
-            day = int(m.group(1))
+    if day is None and bare_number_is_day and (m := re.fullmatch(r"\s*(\d{1,2})\s*", _ACRES_RE.sub(" ", s))):
+        day = int(m.group(1))
     if day is None:
         return None
     d = _to_date(day, today.month, today)
@@ -257,7 +469,7 @@ def find_village(text: str, *, answer_to_question: bool = False) -> tuple[str | 
     options: list[str] = []
     for n in (3, 2, 1):
         for i in range(len(words) - n + 1):
-            phrase = " ".join(words[i:i + n])
+            phrase = " ".join(words[i : i + n])
             matches = resolve(phrase)
             if not matches:
                 continue
@@ -334,7 +546,9 @@ def _money(result: dict[str, Any], lang: str) -> str:
 
 
 def _upcoming_field(phone: str, today: date) -> Any:
-    open_fields = [f for f in FieldsRepo().by_farmer(phone) if f.status.value in ("REGISTERED", "HARVESTED", "BOOKED")]
+    open_fields = [
+        f for f in FieldsRepo().by_farmer(phone) if f.status.value in ("REGISTERED", "HARVESTED", "BOOKED")
+    ]
     if not open_fields:
         return None
     return min(open_fields, key=lambda f: abs((f.harvest_date - today).days))
@@ -365,7 +579,9 @@ def reply(phone: str, text: str, today: date, record: Any) -> str:
         return t("cancelled", lang)
 
     draft, last_assistant = _build_draft(phone, text, today)
-    nothing_new = draft.acres is None and draft.harvest is None and draft.village_id is None and not draft.name
+    nothing_new = (
+        draft.acres is None and draft.harvest is None and draft.village_id is None and not draft.name
+    )
 
     if _YES.match(text):
         f = _upcoming_field(phone, today)
@@ -380,18 +596,27 @@ def reply(phone: str, text: str, today: date, record: Any) -> str:
     if _NO.search(text) and nothing_new and _upcoming_field(phone, today) is not None:
         return t("ask_new_date", lang)
 
-    if asked_slot(last_assistant) == "date" and last_assistant and last_assistant.startswith(MSG["ask_new_date"][lang][:8]):
+    if (
+        asked_slot(last_assistant) == "date"
+        and last_assistant
+        and last_assistant.startswith(MSG["ask_new_date"][lang][:8])
+    ):
         f = _upcoming_field(phone, today)
         if f is not None and draft.harvest:
             moved = call("reschedule", tools.reschedule, phone, f.field_id, draft.harvest.isoformat())
             return _result_text(moved, farmer.name if farmer else "", f.acres, lang)
 
     if _STATUS.search(text) and nothing_new:
-        bookings = [b for b in call("get_my_bookings", tools.get_my_bookings, phone)["bookings"]
-                    if b["status"] == "CONFIRMED"]
+        bookings = [
+            b
+            for b in call("get_my_bookings", tools.get_my_bookings, phone)["bookings"]
+            if b["status"] == "CONFIRMED"
+        ]
         if not bookings:
             return t("no_bookings", lang)
-        items = ", ".join(fmt_date(date.fromisoformat(b["pickup_date"]), lang) + f" ({b['acres']:g})" for b in bookings)
+        items = ", ".join(
+            fmt_date(date.fromisoformat(b["pickup_date"]), lang) + f" ({b['acres']:g})" for b in bookings
+        )
         return t("status", lang, items=items)
 
     if nothing_new and draft.village_unknown is None and not draft.village_options:
@@ -422,7 +647,9 @@ def reply(phone: str, text: str, today: date, record: Any) -> str:
         reg = call("register_farmer", tools.register_farmer, phone, name, village_id, language)
         if not reg.get("ok"):
             return t("bad_input", lang, problem=reg.get("message", ""))
-    fld = call("register_field", tools.register_field, phone, draft.acres, draft.harvest.isoformat(), village_id)
+    fld = call(
+        "register_field", tools.register_field, phone, draft.acres, draft.harvest.isoformat(), village_id
+    )
     if not fld.get("ok"):
         return t("bad_input", lang, problem=fld.get("message", ""))
     booked = call("book_pickup", tools.book_pickup, phone, fld["field_id"])
@@ -438,6 +665,12 @@ def _result_text(result: dict[str, Any], name: str, acres: float, lang: str) -> 
 
 
 def _booked_text(result: dict[str, Any], name: str, acres: float, lang: str) -> str:
-    return t("booked", lang, name=name, acres=f"{acres:g}",
-             date=fmt_date(date.fromisoformat(result["pickup_date"]), lang),
-             operator=result.get("operator_name") or "-", money=_money(result, lang))
+    return t(
+        "booked",
+        lang,
+        name=name,
+        acres=f"{acres:g}",
+        date=fmt_date(date.fromisoformat(result["pickup_date"]), lang),
+        operator=result.get("operator_name") or "-",
+        money=_money(result, lang),
+    )

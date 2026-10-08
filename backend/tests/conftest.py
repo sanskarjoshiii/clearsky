@@ -29,12 +29,32 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "STAGE": "test",
     }.items():
         monkeypatch.setenv(k, v)
-    for k, v in {"LLM_PROVIDER": "rules", "WA_MODE": "simulator", "STT_PROVIDER": "none", "TTS_PROVIDER": "none",
-                 "DEV_AUTH": "false"}.items():
+    for k, v in {
+        "LLM_PROVIDER": "rules",
+        "WA_MODE": "simulator",
+        "STT_PROVIDER": "none",
+        "TTS_PROVIDER": "none",
+        "DEV_AUTH": "false",
+    }.items():
         monkeypatch.setenv(k, v)
-    for k in ("AWS_PROFILE", "DDB_ENDPOINT_URL", "BEDROCK_MODEL_ID", "FIRMS_MAP_KEY", "DATA_BUCKET", "MEDIA_BUCKET",
-              "LLM_MODEL_ID", "LLM_API_KEY", "LLM_BASE_URL", "STT_API_KEY", "STT_MODEL_ID", "INBOUND_QUEUE_URL",
-              "WA_ACCESS_TOKEN", "WA_APP_SECRET", "WA_VERIFY_TOKEN", "WA_PHONE_NUMBER_ID"):
+    for k in (
+        "AWS_PROFILE",
+        "DDB_ENDPOINT_URL",
+        "BEDROCK_MODEL_ID",
+        "FIRMS_MAP_KEY",
+        "DATA_BUCKET",
+        "MEDIA_BUCKET",
+        "LLM_MODEL_ID",
+        "LLM_API_KEY",
+        "LLM_BASE_URL",
+        "STT_API_KEY",
+        "STT_MODEL_ID",
+        "INBOUND_QUEUE_URL",
+        "WA_ACCESS_TOKEN",
+        "WA_APP_SECRET",
+        "WA_VERIFY_TOKEN",
+        "WA_PHONE_NUMBER_ID",
+    ):
         monkeypatch.delenv(k, raising=False)
     # Never read a developer's real .env during tests.
     import clearsky.config as cfg

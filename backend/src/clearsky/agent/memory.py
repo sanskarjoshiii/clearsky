@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
-from clearsky import clock
 from clearsky.config import get_settings
 from clearsky.models import ConversationTurn
+from clearsky.models.entities import Button
 from clearsky.repo import ConversationsRepo
 
 
@@ -14,9 +15,22 @@ def load_turns(phone: str, n: int | None = None) -> list[ConversationTurn]:
     return ConversationsRepo().last(phone, n or get_settings().history_turns)
 
 
-def save_turn(phone: str, role: str, text: str) -> None:
-    ts = clock.now().isoformat(timespec="microseconds")
-    ConversationsRepo().add(ConversationTurn(phone=phone, ts=ts, role=role, text=text))
+def save_turn(
+    phone: str,
+    role: str,
+    text: str,
+    *,
+    kind: str = "text",
+    buttons: list[Button] | None = None,
+    media_url: str | None = None,
+) -> ConversationTurn:
+    # Real wall-clock time keeps the sort key unique and ordered even when the demo clock jumps.
+    ts = datetime.now(UTC).isoformat(timespec="microseconds")
+    turn = ConversationTurn(
+        phone=phone, ts=ts, role=role, text=text, kind=kind, buttons=buttons or [], media_url=media_url
+    )
+    ConversationsRepo().add(turn)
+    return turn
 
 
 def to_messages(turns: list[ConversationTurn]) -> list[dict[str, Any]]:

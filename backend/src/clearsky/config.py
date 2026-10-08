@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     transport_cost_per_tonne_km: float = 8.0
     platform_fee_per_tonne: float = 50.0
 
+    # Risk levels (IMPLEMENTATION.md §6; see domain/risk.py for why RED is 60)
+    risk_red_at: int = 60
+    risk_yellow_at: int = 40
+
     # Impact (Phase 6). None means the impact page omits emissions.
     emission_factor_pm25_kg_per_tonne: float | None = None
 
@@ -154,6 +158,7 @@ def get_optional_secret(name: str) -> str | None:
         return get_secret(name)
     except MissingSecretError:
         return None
+
 
 _secret_cache: dict[str, str] = {}
 

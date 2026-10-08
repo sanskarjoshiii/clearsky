@@ -14,7 +14,7 @@ from typing import Any
 
 from clearsky import clock
 from clearsky.config import get_settings
-from clearsky.domain import matching
+from clearsky.domain import matching, risk
 from clearsky.domain.geo import jitter_point
 from clearsky.domain.villages import resolve
 from clearsky.models import BookingStatus, Farmer, Field, FieldStatus, Language
@@ -214,7 +214,10 @@ def book_pickup(phone: str, field_id: str) -> Result:
     owned = _owned_field(phone, field_id)
     if isinstance(owned, dict):
         return owned
-    return _booking_view(matching.book_pickup(field_id))
+    result = matching.book_pickup(field_id)
+    if isinstance(result, matching.NoSlot):
+        risk.refresh_field(field_id)  # the radar should show "no baler free" right away
+    return _booking_view(result)
 
 
 def get_my_bookings(phone: str) -> Result:
@@ -246,7 +249,9 @@ def confirm_harvest(phone: str, field_id: str) -> Result:
     values: dict[str, Any] = {"harvest_confirmed": True, "updated_at": clock.now().isoformat()}
     if owned.status == FieldStatus.REGISTERED:
         values["status"] = FieldStatus.HARVESTED
-    updated = FieldsRepo().update(field_id, values)
+    FieldsRepo().update(field_id, values)
+    risk.refresh_field(field_id)
+    updated = FieldsRepo().get(field_id) or owned
     return {"ok": True, **_field_view(updated)}
 
 

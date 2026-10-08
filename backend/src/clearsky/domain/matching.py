@@ -326,13 +326,17 @@ def _commit(field: Field, cand: Candidate, buyer: Buyer | None, booking: Booking
     tx.update(
         "Fields",
         {"field_id": field.field_id},
-        "SET #s = :booked, booking_id = :bid, updated_at = :now",
+        "SET #s = :booked, booking_id = :bid, updated_at = :now, "
+        "risk_score = :zero, risk_level = :green, risk_reasons = :reasons",
         values={
             ":booked": FieldStatus.BOOKED.value,
             ":bid": booking.booking_id,
             ":now": clock.now().isoformat(),
             ":r": FieldStatus.REGISTERED.value,
             ":h": FieldStatus.HARVESTED.value,
+            ":zero": 0,
+            ":green": "GREEN",
+            ":reasons": ["booked"],
         },
         names={"#s": "status"},
         condition="#s IN (:r, :h)",
@@ -421,7 +425,71 @@ def cancel_booking(booking_id: str, today: date | None = None) -> bool:
         log.info("cancel conflict", extra={"booking_id": booking_id, "reasons": e.reasons})
         return False
     recompute_stop_order(bk.baler_id, bk.date)
+    from clearsky.domain.risk import refresh_field
+
+    refresh_field(bk.field_id, today)
     return True
+
+
+class DoneResult(BaseModel):
+    ok: bool
+    error: str | None = None  # not_found | forbidden | not_confirmed
+    booking: Booking | None = None
+
+
+def mark_done(booking_id: str, baler_id: str | None = None) -> DoneResult:
+    """Operator finished a field: booking DONE, field CLEARED, buyer received += tonnes (one transaction).
+
+    `baler_id` (from the operator's JWT) must own the booking; None means an officer is acting.
+    """
+    bk = BookingsRepo().get(booking_id)
+    if bk is None:
+        return DoneResult(ok=False, error="not_found")
+    if baler_id is not None and bk.baler_id != baler_id:
+        return DoneResult(ok=False, error="forbidden")
+    if bk.status != BookingStatus.CONFIRMED:
+        return DoneResult(ok=False, error="not_confirmed", booking=bk)
+    now = clock.now().isoformat()
+    tx = TxBuilder()
+    tx.update(
+        "Bookings",
+        {"booking_id": booking_id},
+        "SET #s = :done, done_at = :now",
+        values={":done": BookingStatus.DONE.value, ":confirmed": BookingStatus.CONFIRMED.value, ":now": now},
+        names={"#s": "status"},
+        condition="#s = :confirmed",
+    )
+    tx.update(
+        "Fields",
+        {"field_id": bk.field_id},
+        "SET #s = :cleared, updated_at = :now, risk_score = :zero, risk_level = :green, risk_reasons = :reasons",
+        values={
+            ":cleared": FieldStatus.CLEARED.value,
+            ":now": now,
+            ":zero": 0,
+            ":green": "GREEN",
+            ":reasons": ["cleared"],
+            ":bid": booking_id,
+        },
+        names={"#s": "status"},
+        condition="booking_id = :bid",
+    )
+    if bk.buyer_id:
+        tx.update(
+            "Buyers",
+            {"buyer_id": bk.buyer_id},
+            "SET received_tonnes = if_not_exists(received_tonnes, :zero) + :t",
+            values={":t": bk.est_tonnes, ":zero": 0},
+            condition="attribute_exists(buyer_id)",
+        )
+    try:
+        tx.execute()
+    except TransactionCancelled:
+        return DoneResult(ok=False, error="not_confirmed", booking=BookingsRepo().get(booking_id))
+    from clearsky.domain.risk import refresh_village
+
+    refresh_village(bk.village_id)
+    return DoneResult(ok=True, booking=bk.model_copy(update={"status": BookingStatus.DONE}))
 
 
 def reschedule(field_id: str, new_harvest_date: date, today: date | None = None) -> BookingResult:

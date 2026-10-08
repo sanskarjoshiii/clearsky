@@ -248,7 +248,7 @@ def build_farmers_and_fields(
         if i < n_red:
             # Harvested 3–8 days ago, unbooked, farmer plans to sow soon → RED candidates for Phase 6.
             harvest = ref - timedelta(days=rng.randint(3, 8))
-            deadline = ref + timedelta(days=rng.randint(4, 7))
+            deadline = ref + timedelta(days=rng.randint(3, 6))  # urgent but still bookable
             status, confirmed = FieldStatus.HARVESTED, True
             red.append(f"F-SEED-{i + 1:03d}")
         else:

@@ -52,8 +52,15 @@ def test_parse_date_bare_number_only_when_asked() -> None:
 
 @pytest.mark.parametrize(
     ("text", "expected"),
-    [("8 acre", 8.0), ("8acres", 8.0), ("2.5 ekad", 2.5), ("10 killa", 10.0), ("८ एकड़", 8.0), ("੫ ਏਕੜ", 5.0),
-     ("24 tareekh", None)],
+    [
+        ("8 acre", 8.0),
+        ("8acres", 8.0),
+        ("2.5 ekad", 2.5),
+        ("10 killa", 10.0),
+        ("८ एकड़", 8.0),
+        ("੫ ਏਕੜ", 5.0),
+        ("24 tareekh", None),
+    ],
 )
 def test_parse_acres(text: str, expected: float | None) -> None:
     assert rules.parse_acres(text) == expected
@@ -133,7 +140,9 @@ def test_unknown_village_is_asked_again(seeded: None) -> None:
 def test_yes_after_reminder_confirms_and_books(ddb: None) -> None:
     load(generate(42), prebook=False)
     fx.farmer("+919900000109", village_id="V002", name="Balwinder")
-    fx.field("FR1", phone="+919900000109", village_id="V002", harvest=date(2026, 10, 21), lat=30.266, lng=76.039)
+    fx.field(
+        "FR1", phone="+919900000109", village_id="V002", harvest=date(2026, 10, 21), lat=30.266, lng=76.039
+    )
     reply = run_turn("+919900000109", "haan")
     f = FieldsRepo().get("FR1")
     assert f is not None and f.harvest_confirmed and f.status == FieldStatus.BOOKED

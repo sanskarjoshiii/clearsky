@@ -3,7 +3,7 @@ from __future__ import annotations
 from boto3.dynamodb.conditions import Key
 
 from clearsky.models import Farmer, from_item, to_item
-from clearsky.repo.base import batch_put, query_all, table
+from clearsky.repo.base import batch_put, query_all, scan_all, table
 
 
 class FarmersRepo:
@@ -25,3 +25,6 @@ class FarmersRepo:
             self.t, IndexName="village-index", KeyConditionExpression=Key("village_id").eq(village_id)
         )
         return [from_item(Farmer, i) for i in items]
+
+    def list_all(self) -> list[Farmer]:
+        return [from_item(Farmer, i) for i in scan_all(self.t)]
