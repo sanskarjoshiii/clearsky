@@ -462,7 +462,16 @@ def _baler(p: auth.Principal) -> Any:
 def operator_me() -> dict[str, Any]:
     b = _baler(require("operator"))
     village = VillagesRepo().get(b.base_village_id)
-    return {"baler": b.model_dump(mode="json") | {"base_village_name": village.name if village else None}}
+    today = clock.today()
+    upcoming = BookingsRepo().confirmed_by_baler(b.baler_id, today, today + timedelta(days=60))
+    next_day = min((bk.date for bk in upcoming), default=None)
+    return {
+        "baler": b.model_dump(mode="json")
+        | {
+            "base_village_name": village.name if village else None,
+            "next_stop_date": next_day.isoformat() if next_day else None,
+        }
+    }
 
 
 class OperatorUpdate(BaseModel):
