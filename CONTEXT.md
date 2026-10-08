@@ -27,7 +27,7 @@ ClearSky stops paddy stubble burning in Punjab/Haryana by fixing the logistics: 
 | Infra | `infra/template.yaml`: tables, buckets, SQS + DLQ, Cognito (officer/buyer/operator), JWT HTTP API, 7 functions, hourly + 18:00 IST schedules, alarms, deps layer. `sam validate --lint` ✅, `sam build` ✅. **Nothing deployed.** |
 | Data | `data/seed/*.json` (seed 42): 31 places (approx coords), 10 balers, 3 fictional buyers, 60 synthetic fields (10 RED candidates: 3–6 days to sowing). No FIRMS layer yet. |
 | AWS account | Friend's account 416121583611, ap-south-1. **The access key on the dev laptop now fails (`InvalidClientTokenId`) → new key needed.** Bedrock unusable → LLM API key instead. Transcribe was `SubscriptionRequired` → optional (`STT_PROVIDER`). Polly Kajal ✅ (2026-10-07). |
-| Git | `main` pushed to `https://github.com/sanskarjoshiii/clearsky`. |
+| Git | Remote `https://github.com/sanskarjoshiii/clearsky`. GitHub has the phases 0–3 commit; the 2026-10-09 commits are **local until someone runs `git push origin main`** (the overnight session had no GitHub sign-in). |
 | Dev machine | Windows: no `make`/`sam`/Docker → `.\make.ps1`; uv provides Python 3.12; local stack uses an in-process moto DynamoDB. |
 
 Phase status (mirror of `PROGRESS.md`): 0 🟡 · 1 🟡 · 2 🟡 · 3 🟡 · 4 🟡 · 5 🟡 · 6 🟡 · 7 🟡 · 8 ⬜ (stretch) · 9 🟡
