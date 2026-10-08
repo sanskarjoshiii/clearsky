@@ -314,7 +314,7 @@ def write(data: dict[str, Any], out_dir: Path = SEED_DIR) -> list[Path]:
     paths = []
     for name, rows in data.items():
         p = out_dir / f"{name}.json"
-        p.write_text(json.dumps(rows, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        p.write_text(json.dumps(rows, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
         paths.append(p)
     return paths
 

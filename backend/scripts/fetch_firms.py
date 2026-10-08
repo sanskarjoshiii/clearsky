@@ -84,7 +84,7 @@ def main() -> int:
 
     points = dedupe(in_season(raw, s.district_bbox, s.firms_years))
     LAYER.parent.mkdir(parents=True, exist_ok=True)
-    LAYER.write_text(json.dumps(to_geojson(points)), encoding="utf-8")
+    LAYER.write_text(json.dumps(to_geojson(points)), encoding="utf-8", newline="\n")
     print(f"✅ {len(points)} in-season points in bbox → {LAYER}")
 
     villages_path = SEED_DIR / "villages.json"
