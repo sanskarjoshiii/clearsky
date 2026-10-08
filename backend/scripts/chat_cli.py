@@ -43,7 +43,7 @@ def main() -> int:
             stream.reconfigure(encoding="utf-8")  # Devanagari/Gurmukhi on Windows consoles
 
     from clearsky import clock
-    from clearsky.config import get_settings, reset_settings
+    from clearsky.config import reset_settings
 
     reset_settings()
     server = None
@@ -62,7 +62,6 @@ def main() -> int:
     from clearsky.repo import ConversationsRepo
     from clearsky.repo.base import table
 
-    s = get_settings()
     print(f"{BOT_NAME} chat · phone {args.phone} · today {clock.today()} · brain {describe()}")
     log: list[str] = []
 
