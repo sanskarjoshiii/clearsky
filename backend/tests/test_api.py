@@ -204,3 +204,14 @@ def test_stats(api: None) -> None:
 def test_me_includes_display_name(api: None) -> None:
     assert call("GET", "/api/me", token=BUYER)[1]["display_name"] == "Demo Pellet Plant"
     assert call("GET", "/api/me", token=OFFICER)[1]["config"]["wa_mode"] == "simulator"
+
+
+def test_simulator_inbox_lists_alerted_farmers(api: None) -> None:
+    assert call("GET", "/api/sim/inbox", token=OFFICER)[1]["inbox"] == []
+    unbooked = [f for f in FieldsRepo().list_all() if f.status.value in ("REGISTERED", "HARVESTED")]
+    village_id = unbooked[0].village_id
+    open_fields = [f for f in unbooked if f.village_id == village_id]
+    call("POST", "/api/alerts", {"village_id": village_id}, token=OFFICER)
+    inbox = call("GET", "/api/sim/inbox", token=OFFICER)[1]["inbox"]
+    assert {r["phone"] for r in inbox} == {f.phone for f in open_fields}
+    assert inbox[0]["name"] and inbox[0]["last_text"].startswith("Namaste")

@@ -69,7 +69,7 @@ ClearSky is a **WhatsApp-first coordination system for farmers**, with a simple 
 ## 5. Features
 
 - 🎙️ **Voice-first WhatsApp bot for farmers**: Hindi voice in and out, Punjabi/Hindi/English text. No app, no login.
-- 🤖 **AI agent** (Strands Agents + Amazon Bedrock) that collects the farmer's details from free-form messages, calls booking tools, and replies with only what the tools return.
+- 🤖 **AI agent** (Strands Agents with any LLM: OpenAI-compatible, Anthropic, Gemini or Amazon Bedrock) that collects the farmer's details from free-form messages, calls booking tools, and replies with only what the tools return. A deterministic **rules bot** (Hindi, Punjabi, Hinglish, English) works with no LLM at all and takes over if the LLM fails.
 - 🧮 **Matching engine** that clusters fields by village, respects baler capacity and sowing deadlines, and picks the best buyer by net price and distance.
 - 🔒 **Double-booking safe** through DynamoDB transactions with conditional capacity checks.
 - ⏰ **Farmer reminders** on WhatsApp: a day-before harvest confirmation and a pickup notice.
@@ -93,7 +93,7 @@ flowchart LR
   SQS --> PROC[λ message-processor]
   PROC -->|ogg audio| S3A[(S3 media)]
   S3A --> TR[Amazon Transcribe<br/>hi-IN]
-  PROC --> AG[Strands Agent<br/>on Amazon Bedrock]
+  PROC --> AG[Strands Agent<br/>LLM API or rules bot]
   AG -->|tools| DDB[(DynamoDB)]
   AG --> MT[Matcher]
   MT --> DDB
@@ -125,12 +125,12 @@ flowchart LR
 
 | Service | What we use it for | Why |
 |---|---|---|
-| **Amazon Bedrock** | LLM behind the farmer agent | Managed models, no infra, pay per call |
+| **Amazon Bedrock** *(optional)* | LLM behind the farmer agent when `LLM_PROVIDER=bedrock` (an external LLM API key is the default path) | Managed models, no infra, pay per call |
 | **AWS Lambda** | Webhook, message processor, API, risk scorer, reminders, ingest | Serverless; costs nothing when idle |
 | **Amazon API Gateway (HTTP API)** | WhatsApp webhook and dashboard REST API | Public HTTPS endpoint, JWT authorizer |
 | **Amazon SQS** (+ DLQ) | Decouples webhook from slow processing | Meta needs a fast 200; voice processing takes seconds |
 | **Amazon DynamoDB** | Farmers, fields, balers, buyers, bookings, capacity, conversations | Serverless; transactions prevent double booking |
-| **Amazon Transcribe** | Hindi voice notes to text | Farmers speak, they don't type |
+| **Amazon Transcribe** | Hindi voice notes to text (`STT_PROVIDER=transcribe`; an OpenAI-compatible speech API also works) | Farmers speak, they don't type |
 | **Amazon Polly** | Text to Hindi voice replies | Accessible for low-literacy users |
 | **Amazon S3** | Voice media, FIRMS and satellite layers, transcripts | Cheap, durable storage |
 | **Amazon EventBridge Scheduler** | Hourly risk scoring, daily reminders (IST timezone) | Managed cron |
@@ -158,9 +158,9 @@ flowchart LR
 
 ## 8. Tech Stack
 
-- **Backend:** Python 3.12, Strands Agents SDK, boto3, Powertools, Pydantic v2, rapidfuzz
+- **Backend:** Python 3.12, Strands Agents SDK (OpenAI / Anthropic / Gemini / Bedrock), boto3, Powertools, Pydantic v2, rapidfuzz
 - **Infra:** AWS SAM (`template.yaml`), arm64 Lambdas
-- **Frontend:** React + Vite + TypeScript, Tailwind CSS, deck.gl + MapLibre (Amazon Location tiles), Recharts, Amplify Auth
+- **Frontend:** React 19 + Vite + TypeScript, Tailwind CSS v4, MapLibre GL (OpenFreeMap or Amazon Location tiles), Recharts, TanStack Query, Amplify Auth; design system in `docs/design-system.md`
 - **Data:** NASA FIRMS (VIIRS), Sentinel-2 (stretch), seeded demo data for one district (Sangrur)
 - **Video:** Remotion + deck.gl screen captures
 
@@ -224,14 +224,17 @@ Every command exists twice: `make <target>` on macOS/Linux and `.\make.ps1 <targ
 
 ```bash
 git clone <repo> && cd clearsky
-cp .env.example .env            # fill in values (never commit .env); set BEDROCK_MODEL_ID
+cp .env.example .env            # fill in values (never commit .env); see SETUP_GUIDE.md
 
 make install                    # uv sync (Python 3.12 venv in backend/.venv)
 make lint && make test          # ruff + mypy, pytest (no AWS needed)
 make check-aws                  # ✅/❌ readiness table (read-only, free)
 
-# talk to the agent on your machine: in-process mock DynamoDB with the seed, real Bedrock
-make chat                       # = chat_cli.py --local --debug
+# the whole system on your machine (no AWS, no keys): API + mock DB + WhatsApp simulator
+make dev                        # terminal 1: backend dev server on :8787
+make dashboard                  # terminal 2: dashboard on http://localhost:5173
+make e2e                        # Playwright smoke tests of the full loop
+make chat                       # farmer agent in the terminal (rules bot, or your LLM via .env)
 make book-all                   # matcher dry run over the seed
 
 # store secrets (WhatsApp, FIRMS) in SSM

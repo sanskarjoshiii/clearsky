@@ -7,15 +7,15 @@ Legend: ✅ done · 🟡 code complete and tested; a Definition-of-Done item is 
 | 0 Bootstrap | 🟡 | 2026-10-07 | All built and green. `check_aws`: Bedrock model ID not chosen; Transcribe not subscribed on the account. |
 | 1 Data | 🟡 | 2026-10-07 | Tables, models, repos, seed, FIRMS code done. Waiting: deploy approval (seed AWS tables), FIRMS MAP_KEY (real layer), village list confirmation. |
 | 2 Matching | 🟡 | 2026-10-07 | Engine done; coverage matching 94%, pricing 100%. `book_all` ran against a local mock DB; dev tables need deploy. |
-| 3 Agent | 🟡 | 2026-10-07 | Agent, tools, memory, chat CLI done and tested with a scripted model. Waiting: BEDROCK_MODEL_ID for the live chat check and transcripts. |
-| 4 WhatsApp | ⬜ | | |
-| 5 API/Operator dashboard/Buyer | ⬜ | | |
-| 6 Risk/Alerts | ⬜ | | |
-| 7 Dashboard | ⬜ | | |
-| 8 Satellite | ⬜ | | |
-| 9 Demo/Submit | ⬜ | | |
+| 3 Agent | 🟡 | 2026-10-09 | Provider-agnostic agent (OpenAI-compatible / Anthropic / Gemini / Bedrock) + rules bot fallback, both tested. Waiting: LLM API key + model ID for the live LLM check and transcripts. |
+| 4 WhatsApp | 🟡 | 2026-10-09 | Webhook, processor, voice, templates, simulator mode, SAM resources, e2e script; tested locally end to end. Waiting: Meta app + WA secrets, STT choice, deploy approval. |
+| 5 API/Operator dashboard/Buyer | 🟡 | 2026-10-09 | REST API, Cognito in SAM, operator done flow, buyer, reminders, demo-user script; tested. Waiting: deploy + Cognito users. |
+| 6 Risk/Alerts | 🟡 | 2026-10-09 | Risk engine, inline re-scoring, village alerts, stats; DoD tests pass with fire history. Waiting: FIRMS key for real fire history, deploy. |
+| 7 Dashboard | 🟡 | 2026-10-09 | All screens built from the reference design system; build + Vitest + Playwright smoke green locally. Waiting: deploy (Amplify) + Cognito. |
+| 8 Satellite | ⬜ | | Stretch; not started (cut line 1 in PLAN.md). |
+| 9 Demo/Submit | 🟡 | 2026-10-09 | Demo mode API + UI + `demo_clock.py` + runbook done. Not done: 3× runbook on the deployed stack, video, blog, submission (team). |
 
-Test suite: **93 passed** (`.\make.ps1 test` / `make test`), ruff + mypy clean, overall coverage 93%.
+Test suite: **177 backend tests** (`make test`, coverage 91%), **8 Vitest + 3 Playwright** dashboard tests (`make e2e`); ruff, mypy, tsc clean; `sam validate --lint` and clean `sam build` pass.
 
 ---
 
@@ -68,3 +68,31 @@ Test suite: **93 passed** (`.\make.ps1 test` / `make test`), ruff + mypy clean, 
   - `register_field` is idempotent for identical calls (model retries).
   - Strands 1.58.1 API matched the design; history is passed via `Agent(messages=…)`, `callback_handler=None`.
 - **Next:** set `BEDROCK_MODEL_ID` → `.\make.ps1 chat` → record transcripts → Phase 4 when asked.
+
+## Phase 4 log: WhatsApp + voice (built 2026-10-09)
+- **Built:** `channels/whatsapp.py` (verify challenge, HMAC signature, payload parser for text/audio/button/template-button/location/status, Graph client with retries, media download); `channels/notify.py` (single outbound path, `WA_MODE` simulator/cloud, synthetic-farmer guard, 24-hour rule → template vs interactive); `channels/templates.py` + `docs/whatsapp_templates.md`; `channels/voice.py` (Ogg duration check, Amazon Transcribe or OpenAI-compatible STT, Polly mp3 → S3 presigned); `handlers/webhook.py` (dedupe via `ProcessedMessages`, SQS or inline); `handlers/processor.py` (text/voice/buttons/location, rate limit, voice reply); SAM: `InboundQueue` + DLQ, `WebhookFunction`, `ProcessorFunction` (batch 1, partial-batch failures), alarms; `scripts/e2e.py`.
+- **Tests:** signature valid/invalid, challenge, every payload type, Graph payload shapes and retries, media download, Ogg duration, STT providers, webhook inline + SQS paths, dedupe, buttons (confirm/later/alertbook, foreign field ignored), location, voice with/without STT, rate limit, cloud-mode rules (synthetic skip, template outside 24 h, buttons inside).
+- **Deviations:** Bedrock replaced by a provider switch (`LLM_PROVIDER`) because the account has no usable Bedrock access (team decision 2026-10-09); `rules` bot is the default and the fallback. Transcribe is optional (`STT_PROVIDER`). `WA_MODE=simulator` added so the full loop runs without Meta.
+- **Not yet done (needs team):** Meta app, WA secrets in SSM, test numbers, template approval, deploy, `scripts/e2e.py` against the stack, real voice note.
+
+## Phase 5 log: REST API, Cognito, reminders (built 2026-10-09)
+- **Built:** `handlers/api.py` (Powertools resolver; officer/buyer/operator routes, JSON errors, CORS), `auth.py` (Cognito claims; `DEV_AUTH` tokens for local only), `matching.mark_done` (DONE + CLEARED + buyer received in one transaction) + farmer "field cleared" message, `handlers/reminders.py` (once per day, templates/buttons), SAM: Cognito user pool + client + 3 groups + custom attributes, JWT authorizer, `ApiFunction`, `RemindersFunction` (18:00 Asia/Kolkata), scoped IAM policy; `scripts/create_demo_users.py`; `scripts/dev_server.py` (Lambda handlers behind a local HTTP server).
+- **Tests:** auth 401/403, dev login off by default, Cognito claim parsing, operator isolation (another baler's booking → 403), done flow, capacity/availability update, buyer supply/demand validation, reminders selection + once-per-day.
+- **Deviations:** officer = super admin with extra tables (`/api/balers`, `/api/buyers`, `/api/bookings`); `/api/me`; `/api/operator/me.next_stop_date`.
+
+## Phase 6 log: Risk engine + alerts (built 2026-10-09)
+- **Built:** `domain/risk.py` (score, level, reasons; field refresh; village aggregates; `run_all`), `handlers/risk_job.py` (hourly ScheduleV2), risk set to GREEN inside the booking transaction, re-score on cancel/confirm/no-slot, `domain/alerts.py` (30-min cooldown, WhatsApp offer with one-tap button, `balers_flagged`), `domain/stats.py`.
+- **Tests:** formula + thresholds, booked/cleared/fire, damping, ≥ 5 RED fields with fire history (DoD), alert recipients + cooldown + operator visibility, HAAN → booked → GREEN in one request (DoD).
+- **Deviation:** RED threshold 70 → **60** (configurable). With 70 a bookable field could never be RED (max 68 at 3 days to sowing), contradicting the DoD. Seed RED candidates now have 3–6 days to sowing. Without FIRMS data no bookable field reaches RED.
+
+## Phase 7 log: Dashboard (built 2026-10-09)
+- **Built:** `dashboard/` (Vite 8, React 19, TS strict, Tailwind v4, React Router 8, TanStack Query, MapLibre 6, Recharts 3, Amplify Auth v6). Design system measured from `designs/` → `docs/design-system.md`, tokens only in `src/styles.css`. Screens: login (dev role picker / Cognito), officer radar (KPIs, map, villages by risk, alert dialog, field drawer), fields/bookings/balers/buyers tables, demo controls, buyer supply, operator route (phone-first), public impact, docked farmer simulator (with inbox of alerted farmers). `amplify.yml`.
+- **Verified:** `npm run typecheck`, `npm test` (8), `npm run build`, Playwright smoke (3: officer alert, simulator booking, operator Done) against the local stack; screenshots checked at 1440 px and 390 px.
+- **Deviations:** deck.gl dropped (MapLibre layers are enough; TripsLayer animation is a video-only extra); basemap OpenFreeMap positron by default (CARTO now needs a key); MapLibre 6 worker URL set via Vite `?worker&url`.
+
+## Phase 8 log: Satellite (not started)
+- Stretch goal; skipped per the cut line. FIRMS fire history (Phase 1) covers the "where do fires happen" layer.
+
+## Phase 9 log: Demo mode + docs (partly, 2026-10-09)
+- **Built:** `/api/demo/clock`, `/api/demo/simulate` (`harvest_wave`, `run_risk`, `run_reminders`, `reset`), demo controls page, `scripts/demo_clock.py`, `docs/demo_runbook.md`.
+- **Not done (team):** run the runbook 3× on the deployed stack, record the video, write/publish the blog, submission checklist.

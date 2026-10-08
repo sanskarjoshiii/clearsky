@@ -23,5 +23,6 @@ Project: **ClearSky**, a WhatsApp-first system that books straw pickup so paddy 
 ## Commands
 - `make install` · `make lint` · `make test` · `make build` · `make validate` · `make seed` · `make chat`
 - Windows (no `make`): `.\make.ps1 <same target>`; deploy needs `.\make.ps1 deploy -Confirm yes`.
-- Offline: `make chat` / `make book-all` use `--local` (in-process mock DynamoDB + seed); only Bedrock is real.
+- Whole stack locally, no keys: `make dev` (API :8787, mock DB, seed, WhatsApp simulator, dev login) + `make dashboard` (:5173); `make e2e` runs the Playwright smoke tests.
+- Farmer agent brain: `LLM_PROVIDER` (rules | openai | anthropic | gemini | bedrock). Team setup steps: `SETUP_GUIDE.md`.
 - Dashboard: `cd dashboard && npm run dev`

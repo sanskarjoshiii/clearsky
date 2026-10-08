@@ -1,6 +1,6 @@
 import { ArrowUp, MapPin, RotateCcw, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useConversation, useSimReset, useSimSend } from "../api/hooks";
+import { useConversation, useSimInbox, useSimReset, useSimSend } from "../api/hooks";
 import type { Turn } from "../api/types";
 import { fmtTime } from "../lib/format";
 import { cx, IconButton, useToast } from "./ui";
@@ -68,6 +68,7 @@ export function Simulator({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState("");
   const valid = /^\+\d{10,15}$/.test(phone);
   const convo = useConversation(phone, valid);
+  const inbox = useSimInbox(true);
   const send = useSimSend(phone);
   const reset = useSimReset(phone);
   const toast = useToast();
@@ -111,14 +112,35 @@ export function Simulator({ onClose }: { onClose: () => void }) {
         </div>
       </header>
 
-      <div className="flex items-center gap-2 border-b border-line px-4 py-2 text-[13px]">
-        <span className="text-muted">From</span>
-        <input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ""))}
-          className={cx("h-7 flex-1 rounded-[6px] border bg-canvas px-2 tabular text-[13px] focus:outline-none", valid ? "border-line" : "border-risk-line")}
-          aria-label="Farmer phone number"
-        />
+      <div className="space-y-1.5 border-b border-line px-4 py-2 text-[13px]">
+        <div className="flex items-center gap-2">
+          <span className="w-10 text-muted">From</span>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ""))}
+            className={cx("h-7 flex-1 rounded-[6px] border bg-canvas px-2 tabular text-[13px] focus:outline-none", valid ? "border-line" : "border-risk-line")}
+            aria-label="Farmer phone number"
+          />
+        </div>
+        {inbox.data?.length ? (
+          <div className="flex items-center gap-2">
+            <span className="w-10 text-muted">Inbox</span>
+            <select
+              aria-label="Become a farmer who received a message"
+              value=""
+              onChange={(e) => e.target.value && setPhone(e.target.value)}
+              className="h-7 min-w-0 flex-1 rounded-[6px] border border-line bg-canvas px-1.5 text-[13px]"
+            >
+              <option value="">{inbox.data.length} farmer{inbox.data.length === 1 ? "" : "s"} got a message…</option>
+              {inbox.data.map((r) => (
+                <option key={r.phone} value={r.phone}>
+                  {r.name ?? r.phone}
+                  {r.village_name ? ` · ${r.village_name}` : ""} · {fmtTime(r.last_ts)}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
       </div>
 
       <div ref={scroller} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">

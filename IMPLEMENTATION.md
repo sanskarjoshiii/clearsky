@@ -334,9 +334,13 @@ history     = village.fire_history_score          # 0..1
 
 base  = 0.45*urgency + 0.25*no_capacity + 0.30*history
 score = round(100 * base * (1.0 if harvested else 0.35))
-level = RED if score >= 70 else YELLOW if score >= 40 else GREEN
+level = RED if score >= RISK_RED_AT (60) else YELLOW if score >= RISK_YELLOW_AT (40) else GREEN
 reasons = human-readable list, e.g. ["harvested 3 days ago", "6 days to sowing", "high fire history", "no baler free"]
 ```
+
+**Why RED is 60 (changed from 70 during the build):** a field needs ≥ 3 days to sowing to still be bookable (`SOWING_BUFFER_DAYS=2`). At 3 days, even maximum fire history scores 68, so with 70 a *bookable* field could never be RED and "alert → HAAN → GREEN" was impossible. Both thresholds are settings. Without FIRMS data (fire history 0) only fields with no free baler can reach RED.
+
+Booking sets the field to `0 / GREEN / ["booked"]` inside the booking transaction; cancel, harvest confirmation and failed bookings re-score the field immediately (`risk.refresh_field`), and the hourly job re-scores everything.
 
 Village aggregates: `unbooked_acres`, `red_fields`, `yellow_fields`, `max_score`, `village_risk = max_score`.
 
@@ -346,7 +350,17 @@ Village aggregates: `unbooked_acres`, `red_fields`, `yellow_fields`, `max_score`
 
 ### 7.1 Runtime
 
-- **Strands Agents SDK** with a `BedrockModel(model_id=BEDROCK_MODEL_ID, temperature=0.2)`.
+- **Strands Agents SDK**, provider-agnostic (`agent/llm.py`, setting `LLM_PROVIDER`):
+  | `LLM_PROVIDER` | Model | Needs |
+  |---|---|---|
+  | `rules` (default) | none: deterministic slot-filling bot (`agent/rules.py`) | nothing |
+  | `openai` | `OpenAIModel` (also any OpenAI-compatible API via `LLM_BASE_URL`, e.g. Groq, OpenRouter) | `LLM_MODEL_ID`, `LLM_API_KEY` |
+  | `anthropic` | `AnthropicModel` | `LLM_MODEL_ID`, `LLM_API_KEY` |
+  | `gemini` | `GeminiModel` | `LLM_MODEL_ID`, `LLM_API_KEY` |
+  | `bedrock` | `BedrockModel` | `BEDROCK_MODEL_ID`, model access |
+  Bedrock was the original plan; the team's AWS account has no usable Bedrock model access, so an LLM API key is the expected path. Model IDs are never defaulted.
+- **Fallback:** if the LLM call fails (outage, throttling, bad key), the rules bot answers the same message with the same tools, so a farmer always gets a useful reply.
+- **Rules bot:** parses name, village (fuzzy, any script), acres (`8 acre`, `८ एकड़`, `10 killa`), and harvest date (`24 tareekh`, `kal`, `parso`, `26 Oct`, `28/10`, Devanagari/Gurmukhi digits) from every user turn since the last ✅/❌ confirmation; asks only for what is missing; replies in the farmer's script (Hindi, Punjabi, Hinglish, English); handles status ("kab aayega?"), cancel, HAAN after a reminder, and NAHI → new date → reschedule.
 - One agent instance **per inbound message** (stateless Lambda). History is loaded from `Conversations` (last 10 turns).
 - **The phone number is never an LLM argument.** Tools are built in a factory that closes over the verified sender phone, so the model cannot act on another farmer's data.
 
@@ -420,6 +434,15 @@ Validation lives in the tools, not the prompt: acres 0.5–100, dates within sea
 - **24-hour rule:** free-form messages are only allowed within 24 h of the user's last message. Reminders and officer alerts **must use approved templates**. Create templates in Phase 4, since approval can take time.
 - **Test number limits:** up to 5 verified recipient numbers. Use the team's phones for the demo.
 
+**As built:**
+- **`WA_MODE`**: `simulator` (default) records every outbound message in `Conversations` and sends nothing; the dashboard's farmer simulator reads them. `cloud` records **and** sends through the Graph API. All sending goes through `channels/notify.py`.
+- **Synthetic farmers are never messaged** (`Farmer.synthetic`, set for seed and test numbers), even in cloud mode.
+- **Proactive messages** (`notify.send_proactive`) choose interactive buttons inside the 24 h window and the approved template outside it. Templates and exact text: `channels/templates.py`, `docs/whatsapp_templates.md` (`pickup_reminder`, `baler_tomorrow`, `village_alert`, `field_cleared`).
+- **Button ids** are `<action>:<field_id>` with actions `confirm`, `later`, `alertbook`; the processor ignores ids for fields the sender doesn't own.
+- **Voice:** `STT_PROVIDER` = `transcribe` (Amazon Transcribe), `openai` (any OpenAI-compatible `/audio/transcriptions`, `STT_MODEL_ID`), or `none` (reply "please type"). Duration is read from the Ogg header; > 60 s is refused. Replies get a Polly voice note when the inbound was voice (`TTS_PROVIDER=polly`, needs `MEDIA_BUCKET`).
+- **Rate limit:** more than `RATE_LIMIT_PER_HOUR` (20) messages per phone per hour get a polite "write later".
+- **Local:** without `INBOUND_QUEUE_URL` the webhook processes inline (dev server).
+
 ---
 
 ## 9. REST API (`handlers/api.py`)
@@ -445,6 +468,14 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | POST | `/api/bookings/{id}/done` | operator (own booking only) | Mark done |
 | GET/PUT | `/api/demo/clock` | officer (demo mode only) | Get/set simulated today |
 | POST | `/api/demo/simulate` `{action}` | officer (demo mode) | e.g. `harvest_wave`, `run_risk`, `reset` |
+| GET | `/api/me` | any signed-in role | Principal + display name + runtime config (WA mode, demo mode, today) |
+| GET | `/api/balers`, `/api/buyers`, `/api/bookings?date=` | officer | Super-admin tables (baler 7-day load, buyer demand, all bookings) |
+| POST | `/api/sim/message` `{phone, text \| button_id \| lat,lng}` | officer, `WA_MODE=simulator` only | Farmer simulator: runs the real processor path |
+| GET | `/api/sim/conversation?phone=`, `/api/sim/inbox` | officer, simulator only | Conversation turns; farmers who received proactive messages |
+| POST | `/api/sim/reset` `{phone}` | officer, simulator only | Clear one simulated conversation |
+| POST | `/api/dev/login`, GET `/api/dev/accounts` | **`DEV_AUTH=true` only** (local dev server) | Unsigned `dev.<role>.<id>` tokens for the role picker; 404 otherwise |
+
+`/api/operator/me` also returns `next_stop_date` (first confirmed stop ≥ today) so the operator can jump to it.
 
 **Operator scope:** `baler_id` always comes from the JWT claim `custom:baler_id`, never from the URL or body.
 
@@ -466,6 +497,13 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 
 **Design:** green / amber / red risk palette, plus Hindi labels on key actions. Make sure it works on a phone screen.
 
+**As built** (`dashboard/README.md`, `docs/design-system.md`):
+- Stack: Vite 8, React 19, TypeScript (strict), Tailwind v4 (`@theme` tokens in `src/styles.css`), React Router 8, TanStack Query (10 s polling), **MapLibre GL 6** (deck.gl dropped: MapLibre circle/heatmap/line layers cover the radar and route; the TripsLayer animation is a video-only extra), Recharts 3, Amplify Auth v6.
+- Basemap: OpenFreeMap "positron" (free OSM vector tiles, no key) unless `VITE_MAP_STYLE_URL` points at an Amazon Location style.
+- Extra screens for the officer as super admin: Fields, Bookings, Balers (7-day load), Buyers, Demo controls; and a docked **farmer simulator** (WhatsApp stand-in) in simulator mode.
+- Auth: `VITE_AUTH_MODE=dev` (role picker against the local dev server) or `cognito` (email + password, ID token as bearer).
+- Tests: Vitest component tests; Playwright smoke tests run the full officer/farmer/operator loop against the local stack using the installed Chrome.
+
 ---
 
 ## 11. Auth and Security
@@ -484,7 +522,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 - Webhook: always returns 200 after a valid signature, even when the body is ignored, so Meta stops retrying.
 - SQS → processor: batch size 1, visibility timeout 720 s (6× the function timeout), `maxReceiveCount=3` → DLQ, CloudWatch alarm on DLQ depth > 0.
 - Processor failures after an agent reply are logged, and the message isn't re-run (the ProcessedMessages marker is set before work starts, with status `processing` → `done`).
-- Bedrock or Transcribe throttling: exponential backoff (3 tries). Then reply "Thodi der mein dobara koshish karein." ("Please try again in a little while.")
+- LLM or speech-to-text failure: the LLM SDKs retry with backoff; if the call still fails, the rules bot answers the message (§7.1); if that also fails the farmer gets "Thodi der mein dobara koshish karein." ("Please try again in a little while.")
 - Matcher conflicts: retry the next-best candidate (up to 3).
 
 ---
@@ -517,6 +555,20 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `SEASON_START`, `HARVEST_LOOKBACK_DAYS` | `2026-09-15`, `15` | harvest-date validation in tools |
 | `FIRMS_SOURCE`, `FIRMS_YEARS`, `FIRMS_DAY_RANGE` | `VIIRS_SNPP_SP`, 2022–2025, `5` | FIRMS area-API requests |
 | `AGENT_MAX_TOKENS`, `HISTORY_TURNS` | `600`, `10` | cost guardrails (§17) |
+| `LLM_PROVIDER` | `rules` | `rules`, `openai`, `anthropic`, `gemini`, `bedrock` (§7.1) |
+| `LLM_MODEL_ID`, `LLM_BASE_URL` | unset | team's choice; base URL only for OpenAI-compatible APIs |
+| `LLM_API_KEY` | SSM `/clearsky/{stage}/llm/api_key` | secret |
+| `WA_MODE` | `simulator` | `cloud` sends real WhatsApp messages (§8) |
+| `WA_TEMPLATE_LANGUAGE` | `hi` | template language code |
+| `STT_PROVIDER`, `STT_MODEL_ID`, `STT_BASE_URL` | `none` | `transcribe` or `openai` (§8) |
+| `STT_API_KEY` | SSM `/clearsky/{stage}/stt/api_key` | falls back to `LLM_API_KEY` |
+| `TTS_PROVIDER` | `polly` | `none` disables voice replies |
+| `MAX_VOICE_SECONDS`, `RATE_LIMIT_PER_HOUR` | `60`, `20` | |
+| `RISK_RED_AT`, `RISK_YELLOW_AT` | `60`, `40` | §6 |
+| `ALERT_COOLDOWN_MINUTES` | `30` | one alert per village per window |
+| `DEV_AUTH` | `false` | local dev server only; never in a shared stack |
+| `CORS_ORIGINS` | `*` | set to the dashboard origin when deployed |
+| `ROUTE_CALCULATOR_NAME` | unset | Amazon Location route calculator; unset = straight lines |
 
 Empty values in `.env` count as unset. `clock.today()` returns an in-process override (tests, `chat_cli --today`) if set, else `Settings.clock.today` when `DEMO_MODE` is on, else today's date in IST (fixed UTC+05:30). **All date logic must go through `clock`.**
 

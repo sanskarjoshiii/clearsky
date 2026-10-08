@@ -171,6 +171,22 @@ export function useSimSend(phone: string) {
   });
 }
 
+export interface InboxRow {
+  phone: string;
+  name: string | null;
+  village_name: string | null;
+  last_ts: string;
+  last_text: string;
+}
+
+export const useSimInbox = (enabled: boolean) =>
+  useQuery({
+    queryKey: ["sim", "inbox"],
+    queryFn: async () => (await api<{ inbox: InboxRow[] }>("/api/sim/inbox")).inbox,
+    enabled,
+    refetchInterval: 8000,
+  });
+
 export function useSimReset(phone: string) {
   const qc = useQueryClient();
   return useMutation({

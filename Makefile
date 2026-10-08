@@ -4,7 +4,7 @@ SAM ?= sam
 CHAT_ARGS ?= --local --debug
 BACKEND := cd backend &&
 
-.PHONY: help install lint format test cov layer build validate deploy gen-seed seed chat book-all firms check-aws
+.PHONY: help install lint format test cov layer build dev dashboard e2e validate deploy gen-seed seed chat book-all firms check-aws
 
 help:
 	@echo "install lint format test build validate deploy gen-seed seed chat book-all firms check-aws"
@@ -64,3 +64,13 @@ firms:
 
 check-aws:
 	$(BACKEND) $(UV) run python scripts/check_aws.py
+
+# Local full stack: API (mock DynamoDB + seed + WhatsApp simulator + dev login) and the dashboard
+dev:
+	$(BACKEND) $(UV) run python scripts/dev_server.py
+
+dashboard:
+	cd dashboard && npm install && npm run dev
+
+e2e:
+	cd dashboard && npm run typecheck && npm test && npx playwright test

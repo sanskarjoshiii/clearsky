@@ -1,7 +1,7 @@
 """Phase 0: check AWS readiness for every service ClearSky needs. Prints a ✅/❌ table.
 
-All checks are read-only and free, except `--invoke-bedrock`, which sends one tiny prompt to the
-configured model (a few tokens, billed). Usage:  uv run python scripts/check_aws.py [--invoke-bedrock]
+All checks are read-only and free, except `--invoke-llm`, which sends one tiny prompt to the
+configured LLM (a few tokens, billed). Usage:  uv run python scripts/check_aws.py [--invoke-llm]
 """
 
 from __future__ import annotations
@@ -22,13 +22,15 @@ Row = tuple[str, bool, str]
 def _try(name: str, fn: Callable[[], str]) -> Row:
     try:
         return (name, True, fn())
-    except (ClientError, BotoCoreError, RuntimeError, KeyError) as e:
+    except (ClientError, BotoCoreError, RuntimeError, KeyError, Exception) as e:
         return (name, False, str(e).splitlines()[0][:140])
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--invoke-bedrock", action="store_true", help="send one tiny billed prompt to the model")
+    p.add_argument(
+        "--invoke-llm", action="store_true", help="send one tiny billed prompt to the configured LLM"
+    )
     args = p.parse_args()
     s = get_settings()
     region = s.aws_region
@@ -41,35 +43,44 @@ def main() -> int:
     rows.append(_try("AWS credentials", identity))
     rows.append(("Region", True, region))
 
-    def bedrock_model() -> str:
-        if not s.bedrock_model_id:
-            raise RuntimeError("BEDROCK_MODEL_ID not set (team must choose one)")
-        client = boto3.client("bedrock", region_name=region)
-        mid = s.bedrock_model_id
-        if mid.split(".")[0] in ("global", "apac", "in", "us", "eu"):
-            prof = client.get_inference_profile(inferenceProfileIdentifier=mid)
-            return f"inference profile {prof['inferenceProfileId']} ({prof['status']})"
-        model = client.get_foundation_model(modelIdentifier=mid)["modelDetails"]
-        return f"model {model['modelId']} ({model.get('modelLifecycle', {}).get('status', '?')})"
+    def llm_config() -> str:
+        from clearsky.agent import llm
 
-    rows.append(_try("Bedrock model exists", bedrock_model))
+        p = llm.provider()
+        if p == "rules":
+            return "rules bot (no LLM needed); set LLM_PROVIDER to use an LLM"
+        if p == "bedrock":
+            if not s.bedrock_model_id:
+                raise RuntimeError("BEDROCK_MODEL_ID not set (team must choose one)")
+            client = boto3.client("bedrock", region_name=region)
+            mid = s.bedrock_model_id
+            if mid.split(".")[0] in ("global", "apac", "in", "us", "eu"):
+                prof = client.get_inference_profile(inferenceProfileIdentifier=mid)
+                return f"bedrock inference profile {prof['inferenceProfileId']} ({prof['status']})"
+            model = client.get_foundation_model(modelIdentifier=mid)["modelDetails"]
+            return f"bedrock model {model['modelId']}"
+        llm.build_model()  # raises with a fix-it message if the model id or key is missing
+        return f"{llm.describe()} (key present)"
 
-    if args.invoke_bedrock:
+    rows.append(_try("LLM provider", llm_config))
+
+    if args.invoke_llm:
 
         def ping() -> str:
-            rt = boto3.client("bedrock-runtime", region_name=region)
-            resp = rt.converse(
-                modelId=s.bedrock_model_id,
-                messages=[{"role": "user", "content": [{"text": "ping"}]}],
-                inferenceConfig={"maxTokens": 5},
-            )
-            return "invoke ok: " + resp["output"]["message"]["content"][0].get("text", "")[:30]
+            from strands import Agent
 
-        rows.append(_try("Bedrock invoke (billed)", ping))
+            from clearsky.agent import llm
+
+            agent = Agent(model=llm.build_model(), callback_handler=None)
+            return "reply: " + str(agent("Reply with the single word: pong")).strip()[:40]
+
+        rows.append(_try("LLM invoke (billed)", ping))
     else:
-        rows.append(("Bedrock invoke", True, "skipped (pass --invoke-bedrock to test access, billed)"))
+        rows.append(("LLM invoke", True, "skipped (pass --invoke-llm to send one tiny billed prompt)"))
 
     def transcribe() -> str:
+        if s.stt_provider != "transcribe":
+            return f"not used (STT_PROVIDER={s.stt_provider})"
         boto3.client("transcribe", region_name=region).list_transcription_jobs(MaxResults=1)
         return f"reachable; language {s.transcribe_language}"
 

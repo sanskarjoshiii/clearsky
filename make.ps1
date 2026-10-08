@@ -82,5 +82,12 @@ switch ($Target) {
     "book-all" { Invoke-Uv @("run", "python", "scripts/book_all.py", "--local", "--dry-run") }
     "firms" { Invoke-Uv @("run", "python", "scripts/fetch_firms.py", "--apply-seed") }
     "check-aws" { Invoke-Uv @("run", "python", "scripts/check_aws.py") }
-    default { Write-Output "targets: install lint format test cov requirements build validate deploy gen-seed seed chat book-all firms check-aws" }
+    "dev" { Invoke-Uv @("run", "python", "scripts/dev_server.py") }
+    "dashboard" { Push-Location (Join-Path $Root "dashboard"); try { npm install; npm run dev } finally { Pop-Location } }
+    "e2e" {
+        Push-Location (Join-Path $Root "dashboard")
+        try { if (-not $env:CLEARSKY_API_CMD -and -not (Get-Command uv -ErrorAction SilentlyContinue)) { $env:CLEARSKY_API_CMD = "python -m uv run python scripts/dev_server.py" }; npm run typecheck; npm test; npx playwright test }
+        finally { Pop-Location }
+    }
+    default { Write-Output "targets: install lint format test cov layer build validate deploy gen-seed seed chat book-all firms check-aws dev dashboard e2e" }
 }

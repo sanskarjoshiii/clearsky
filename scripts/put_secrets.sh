@@ -19,6 +19,8 @@ declare -A PATHS=(
   [WA_APP_SECRET]="wa/app_secret"
   [WA_VERIFY_TOKEN]="wa/verify_token"
   [FIRMS_MAP_KEY]="firms/map_key"
+  [LLM_API_KEY]="llm/api_key"
+  [STT_API_KEY]="stt/api_key"
 )
 
 for NAME in "${!PATHS[@]}"; do

@@ -699,6 +699,41 @@ def sim_conversation() -> dict[str, Any]:
     return {"phone": phone, "turns": _turns(phone)}
 
 
+@app.get("/api/sim/inbox")
+def sim_inbox() -> dict[str, Any]:
+    """Farmers who recently got a proactive message (alert, reminder, cleared), newest first.
+
+    Simulator mode only: it lets the officer "become" an alerted farmer in the farmer panel. All
+    numbers here are simulator/demo numbers (WA_MODE=simulator never reaches real phones).
+    """
+    _sim_guard()
+    from clearsky.repo.base import scan_all, table
+
+    latest: dict[str, dict[str, Any]] = {}
+    for item in scan_all(table("Conversations")):
+        if item.get("role") != "assistant" or item.get("kind") not in ("buttons", "template"):
+            continue
+        phone = str(item["phone"])
+        if phone not in latest or str(item["ts"]) > latest[phone]["ts"]:
+            latest[phone] = {"ts": str(item["ts"]), "text": str(item.get("text", ""))}
+    farmers = {f.phone: f for f in FarmersRepo().list_all()}
+    villages = {v.village_id: v for v in VillagesRepo().list_all()}
+    rows = []
+    for phone, last in sorted(latest.items(), key=lambda kv: kv[1]["ts"], reverse=True)[:25]:
+        farmer = farmers.get(phone)
+        village = villages.get(farmer.village_id) if farmer else None
+        rows.append(
+            {
+                "phone": phone,
+                "name": farmer.name if farmer else None,
+                "village_name": village.name if village else None,
+                "last_ts": last["ts"],
+                "last_text": last["text"][:120],
+            }
+        )
+    return {"inbox": rows}
+
+
 class SimReset(BaseModel):
     phone: str = PField(pattern=r"^\+\d{10,15}$")
 
