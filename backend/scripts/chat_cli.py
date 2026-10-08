@@ -5,7 +5,8 @@
   --today       simulated date (default: the clock, or 2026-10-20 with --local)
   --debug       print every tool call and result
   --transcript  append the session to a Markdown file (e.g. docs/agent_transcripts.md)
-  --model-id    override BEDROCK_MODEL_ID for this session
+  --provider    override LLM_PROVIDER (rules | openai | anthropic | gemini | bedrock)
+  --model-id    override LLM_MODEL_ID (or BEDROCK_MODEL_ID for bedrock) for this session
 Type /quit to exit, /reset to forget the conversation history for this phone.
 """
 
@@ -27,12 +28,16 @@ def main() -> int:
     p.add_argument("--debug", action="store_true")
     p.add_argument("--transcript", type=Path, default=None)
     p.add_argument("--title", default="", help="heading for the transcript section")
+    p.add_argument("--provider", default=None)
     p.add_argument("--model-id", default=None)
     p.add_argument("-m", "--message", action="append", default=[], help="send these messages, then exit")
     args = p.parse_args()
 
     if args.model_id:
+        os.environ["LLM_MODEL_ID"] = args.model_id
         os.environ["BEDROCK_MODEL_ID"] = args.model_id
+    if args.provider:
+        os.environ["LLM_PROVIDER"] = args.provider
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")  # Devanagari/Gurmukhi on Windows consoles
@@ -52,14 +57,13 @@ def main() -> int:
         clock.set_override(args.today)
 
     from clearsky.agent.agent import AgentConfigError, run_turn
+    from clearsky.agent.llm import describe
     from clearsky.agent.prompts import BOT_NAME
     from clearsky.repo import ConversationsRepo
     from clearsky.repo.base import table
 
     s = get_settings()
-    print(
-        f"{BOT_NAME} chat · phone {args.phone} · today {clock.today()} · model {s.bedrock_model_id or '(unset)'}"
-    )
+    print(f"{BOT_NAME} chat · phone {args.phone} · today {clock.today()} · brain {describe()}")
     log: list[str] = []
 
     def handle(text: str) -> bool:
@@ -74,7 +78,7 @@ def main() -> int:
         try:
             reply = run_turn(args.phone, text)
         except AgentConfigError as e:
-            print(f"❌ {e}  (pass --model-id or set BEDROCK_MODEL_ID in .env)")
+            print(f"❌ {e}  (set LLM_PROVIDER / LLM_MODEL_ID / LLM_API_KEY in .env, or use --provider rules)")
             return False
         if args.debug:
             for c in reply.tool_calls:
@@ -106,9 +110,7 @@ def main() -> int:
         if args.transcript and log:
             args.transcript.parent.mkdir(parents=True, exist_ok=True)
             with args.transcript.open("a", encoding="utf-8") as fh:
-                fh.write(
-                    f"\n## {args.title or 'Session'} (today {clock.today()}, model {s.bedrock_model_id})\n\n"
-                )
+                fh.write(f"\n## {args.title or 'Session'} (today {clock.today()}, brain {describe()})\n\n")
                 fh.write("\n\n".join(log) + "\n")
             print(f"(transcript appended to {args.transcript})")
         if server is not None:

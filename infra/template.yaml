@@ -2,22 +2,61 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
   ClearSky - WhatsApp-first straw pickup booking (farmers) with dashboards for officers, buyers and
-  baler operators. Phases 0-3: data layer, buckets, health API, FIRMS ingest. Deploy only with
-  explicit team approval.
+  baler operators. Deploy only with explicit team approval.
 
 Parameters:
   Stage:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
-  BedrockModelId:
-    Type: String
-    Default: ""
-    Description: Bedrock model or inference-profile ID chosen by the team (used from Phase 4).
   DemoMode:
     Type: String
     Default: "true"
     AllowedValues: ["true", "false"]
+  LlmProvider:
+    Type: String
+    Default: rules
+    AllowedValues: [rules, openai, anthropic, gemini, bedrock]
+    Description: Farmer agent brain. Non-rules providers need LlmModelId and the SSM secret /clearsky/{stage}/llm/api_key.
+  LlmModelId:
+    Type: String
+    Default: ""
+    Description: Model ID chosen by the team (empty for rules).
+  LlmBaseUrl:
+    Type: String
+    Default: ""
+    Description: Optional OpenAI-compatible base URL (e.g. Groq, OpenRouter). Empty for the provider default.
+  BedrockModelId:
+    Type: String
+    Default: ""
+    Description: Only for LlmProvider=bedrock.
+  WaMode:
+    Type: String
+    Default: simulator
+    AllowedValues: [simulator, cloud]
+    Description: cloud sends real WhatsApp messages (needs the WA_* SSM secrets); simulator only records them.
+  SttProvider:
+    Type: String
+    Default: none
+    AllowedValues: [none, transcribe, openai]
+  SttModelId:
+    Type: String
+    Default: ""
+  TtsProvider:
+    Type: String
+    Default: polly
+    AllowedValues: [polly, none]
+  CorsOrigins:
+    Type: String
+    Default: "*"
+    Description: Dashboard origin(s), comma-separated (e.g. the Amplify URL). "*" during setup.
+  AlarmEmail:
+    Type: String
+    Default: ""
+    Description: Optional email for DLQ/error alarms (confirm the SNS subscription email).
+
+Conditions:
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
 
 Globals:
   Function:
@@ -35,8 +74,17 @@ Globals:
         TABLE_PREFIX: !Sub "${AWS::StackName}-"
         DATA_BUCKET: !Ref DataBucket
         MEDIA_BUCKET: !Ref MediaBucket
-        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        INBOUND_QUEUE_URL: !Ref InboundQueue
         DEMO_MODE: !Ref DemoMode
+        LLM_PROVIDER: !Ref LlmProvider
+        LLM_MODEL_ID: !Ref LlmModelId
+        LLM_BASE_URL: !Ref LlmBaseUrl
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        WA_MODE: !Ref WaMode
+        STT_PROVIDER: !Ref SttProvider
+        STT_MODEL_ID: !Ref SttModelId
+        TTS_PROVIDER: !Ref TtsProvider
+        CORS_ORIGINS: !Ref CorsOrigins
         POWERTOOLS_SERVICE_NAME: clearsky
         LOG_LEVEL: INFO
 
@@ -52,11 +100,69 @@ Resources:
       CompatibleArchitectures: [arm64]
       RetentionPolicy: Delete
 
+  # ------------------------------------------------------------------ auth (dashboard users)
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-users"
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true  # accounts are created by the team (scripts/create_demo_users.py)
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      Schema:
+        - { Name: district, AttributeDataType: String, Mutable: true }
+        - { Name: buyer_id, AttributeDataType: String, Mutable: true }
+        - { Name: baler_id, AttributeDataType: String, Mutable: true }
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub "${AWS::StackName}-dashboard"
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_SRP_AUTH, ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      ReadAttributes: [email, custom:district, custom:buyer_id, custom:baler_id]
+      WriteAttributes: [email]
+      IdTokenValidity: 12
+      AccessTokenValidity: 12
+      TokenValidityUnits: { IdToken: hours, AccessToken: hours, RefreshToken: days }
+
+  OfficerGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: { UserPoolId: !Ref UserPool, GroupName: officer, Description: District officer (super admin) }
+  BuyerGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: { UserPoolId: !Ref UserPool, GroupName: buyer, Description: Industry buyer }
+  OperatorGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: { UserPoolId: !Ref UserPool, GroupName: operator, Description: Baler operator }
+
   # ------------------------------------------------------------------ API
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Description: ClearSky HTTP API (webhook and dashboard routes are added in Phases 4-5)
+      Description: ClearSky HTTP API (WhatsApp webhook + dashboard REST)
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+              audience: [!Ref UserPoolClient]
+      CorsConfiguration:
+        AllowOrigins: [!Ref CorsOrigins]
+        AllowHeaders: [Authorization, Content-Type]
+        AllowMethods: [GET, POST, PUT, OPTIONS]
+        MaxAge: 600
 
   HealthFunction:
     Type: AWS::Serverless::Function
@@ -73,6 +179,198 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /health
             Method: GET
+            Auth: { Authorizer: NONE }
+
+  # ------------------------------------------------------------------ WhatsApp (farmers only)
+  InboundDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  InboundQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 720  # 6 × the processor timeout
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt InboundDLQ.Arn
+        maxReceiveCount: 3
+
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.webhook.handler
+      Description: Meta webhook - verify, check signature, dedupe, enqueue (fast 200)
+      Timeout: 10
+      Policies:
+        - SQSSendMessagePolicy: { QueueName: !GetAtt InboundQueue.QueueName }
+        - DynamoDBCrudPolicy: { TableName: !Ref ProcessedMessagesTable }
+        - SSMParameterReadPolicy: { ParameterName: !Sub "clearsky/${Stage}/*" }
+      Events:
+        Verify:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /webhook/whatsapp, Method: GET, Auth: { Authorizer: NONE } }
+        Inbound:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /webhook/whatsapp, Method: POST, Auth: { Authorizer: NONE } }
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.processor.handler
+      Description: Farmer message - voice to text, agent, reply (text + voice)
+      Timeout: 120
+      MemorySize: 1024
+      Policies:
+        - !Ref AppAccessPolicy
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt InboundQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+
+  # ------------------------------------------------------------------ dashboard API + jobs
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.api.handler
+      Description: Dashboard REST API (officer, buyer, operator)
+      MemorySize: 1024
+      Policies:
+        - !Ref AppAccessPolicy
+      Events:
+        Stats:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /api/stats, Method: GET, Auth: { Authorizer: NONE } }
+        Api:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: "/api/{proxy+}", Method: ANY }
+
+  RiskJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.risk_job.handler
+      Description: Hourly burn-risk scoring for fields and villages
+      Timeout: 300
+      MemorySize: 1024
+      Policies:
+        - !Ref AppAccessPolicy
+      Events:
+        Hourly:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(1 hour)
+
+  RemindersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.reminders.handler
+      Description: Daily 18:00 IST farmer reminders (harvest check, pickup notice)
+      Timeout: 300
+      Policies:
+        - !Ref AppAccessPolicy
+      Events:
+        Daily:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 18 * * ? *)
+            ScheduleExpressionTimezone: Asia/Kolkata
+
+  # One policy for the functions that run app logic: this stack's tables, buckets, the voice and
+  # LLM services, and this stage's SSM secrets. Nothing outside the stack prefix.
+  AppAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem,
+                     dynamodb:Query, dynamodb:Scan, dynamodb:BatchWriteItem, dynamodb:BatchGetItem,
+                     dynamodb:ConditionCheckItem, dynamodb:DescribeTable]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-*"
+              - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-*/index/*"
+          - Effect: Allow
+            Action: [s3:GetObject, s3:PutObject, s3:HeadObject]
+            Resource:
+              - !Sub "${MediaBucket.Arn}/*"
+              - !Sub "${DataBucket.Arn}/*"
+          - Effect: Allow
+            Action: [s3:ListBucket]
+            Resource: [!GetAtt MediaBucket.Arn, !GetAtt DataBucket.Arn]
+          - Effect: Allow
+            Action: [ssm:GetParameter]
+            Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/clearsky/${Stage}/*"
+          - Effect: Allow
+            Action: [kms:Decrypt]
+            Resource: "*"
+            Condition:
+              StringEquals:
+                kms:ViaService: !Sub "ssm.${AWS::Region}.amazonaws.com"
+          - Effect: Allow
+            Action: [transcribe:StartTranscriptionJob, transcribe:GetTranscriptionJob, polly:SynthesizeSpeech,
+                     bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream, geo:CalculateRoute]
+            Resource: "*"
+          - Effect: Allow
+            Action: [sqs:SendMessage]
+            Resource: !GetAtt InboundQueue.Arn
+
+  # ------------------------------------------------------------------ alarms
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Condition: HasAlarmEmail
+    Properties:
+      Subscription:
+        - { Protocol: email, Endpoint: !Ref AlarmEmail }
+
+  DlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Farmer messages failed 3 times and landed in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions: [{ Name: QueueName, Value: !GetAtt InboundDLQ.QueueName }]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmEmail, [!Ref AlarmTopic], !Ref "AWS::NoValue"]
+
+  ProcessorErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Processor Lambda errors in the last 5 minutes
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref ProcessorFunction }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmEmail, [!Ref AlarmTopic], !Ref "AWS::NoValue"]
+
+  ApiErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: More than 5 API 5xx responses in 5 minutes
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions: [{ Name: ApiId, Value: !Ref HttpApi }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmEmail, [!Ref AlarmTopic], !Ref "AWS::NoValue"]
 
   FirmsIngestFunction:
     Type: AWS::Serverless::Function
@@ -314,3 +612,20 @@ Outputs:
     Value: !Ref MediaBucket
   FirmsIngestFunctionName:
     Value: !Ref FirmsIngestFunction
+  WebhookUrl:
+    Description: Paste into Meta → WhatsApp → Configuration → Callback URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/webhook/whatsapp"
+  UserPoolId:
+    Description: VITE_USER_POOL_ID for the dashboard
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: VITE_USER_POOL_CLIENT_ID for the dashboard
+    Value: !Ref UserPoolClient
+  InboundQueueUrl:
+    Value: !Ref InboundQueue
+  InboundDLQUrl:
+    Value: !Ref InboundDLQ
+  RemindersFunctionName:
+    Value: !Ref RemindersFunction
+  RiskJobFunctionName:
+    Value: !Ref RiskJobFunction
