@@ -95,14 +95,34 @@ def test_off_topic_reply_makes_no_tool_calls(seeded: None) -> None:
     assert reply.tool_calls == [] and reply.booking is None
 
 
-def test_model_failure_returns_polite_fallback(seeded: None) -> None:
+def test_model_failure_falls_back_to_rules_bot(seeded: None) -> None:
     reply = run_turn(PHONE, MSG, model=FailingModel())
-    assert reply.text == FALLBACK_REPLY and reply.error == "RuntimeError"
+    assert reply.error == "RuntimeError"
+    assert reply.text.startswith("✅") and reply.booking is not None  # rules bot still booked it
+    assert reply.text != FALLBACK_REPLY
     assert [t.role for t in ConversationsRepo().last(PHONE, 10)] == ["user", "assistant"]
 
 
-def test_missing_model_id_is_a_config_error(seeded: None) -> None:
-    with pytest.raises(AgentConfigError):
+@pytest.mark.parametrize(
+    ("env", "needs"),
+    [
+        ({"LLM_PROVIDER": "bedrock"}, "BEDROCK_MODEL_ID"),
+        ({"LLM_PROVIDER": "openai"}, "LLM_MODEL_ID"),
+        ({"LLM_PROVIDER": "openai", "LLM_MODEL_ID": "team-model"}, "LLM_API_KEY"),
+        ({"LLM_PROVIDER": "nope"}, "LLM_PROVIDER"),
+    ],
+)
+def test_misconfigured_llm_is_a_config_error(
+    seeded: None, monkeypatch: pytest.MonkeyPatch, env: dict[str, str], needs: str
+) -> None:
+    import clearsky.config as cfg
+
+    monkeypatch.setattr(cfg, "_dotenv_value", lambda name: None)
+    monkeypatch.setattr(cfg, "_ssm_value", lambda path: None)
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    cfg.reset_settings()
+    with pytest.raises(AgentConfigError, match=needs):
         run_turn(PHONE, MSG)
 
 

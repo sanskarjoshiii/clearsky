@@ -14,14 +14,13 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 from strands import Agent, tool
-from strands.models import BedrockModel
 from strands.models.model import Model
 from strands.types.content import Message
 
 from clearsky import clock
-from clearsky.agent import memory, prompts
+from clearsky.agent import llm, memory, prompts, rules
 from clearsky.agent import tools as impl
-from clearsky.config import get_settings
+from clearsky.agent.llm import LLMConfigError
 from clearsky.logging import get_logger, mask_phone
 
 log = get_logger(child="agent")
@@ -29,8 +28,7 @@ log = get_logger(child="agent")
 FALLBACK_REPLY = "Maaf kijiye, abhi dikkat aa rahi hai. Thodi der mein dobara koshish karein. 🙏"
 
 
-class AgentConfigError(RuntimeError):
-    pass
+AgentConfigError = LLMConfigError
 
 
 class ToolCall(BaseModel):
@@ -60,15 +58,8 @@ class TurnContext:
 
 
 def default_model() -> Model:
-    s = get_settings()
-    if not s.bedrock_model_id:
-        raise AgentConfigError("BEDROCK_MODEL_ID is not set. Ask the team which Bedrock model to use.")
-    return BedrockModel(
-        model_id=s.bedrock_model_id,
-        temperature=s.agent_temperature,
-        max_tokens=s.agent_max_tokens,
-        region_name=s.aws_region,
-    )
+    """The configured LLM (LLM_PROVIDER). Raises AgentConfigError with a fix-it message."""
+    return llm.build_model()
 
 
 def build_tools(phone: str, ctx: TurnContext) -> list[Any]:
@@ -197,21 +188,36 @@ def build_agent(
 
 
 def run_turn(phone: str, text: str, *, today: date | None = None, model: Model | None = None) -> AgentReply:
-    """Handle one inbound farmer message end to end: load history, run the agent, save both turns."""
+    """Handle one inbound farmer message end to end: load history, run the agent, save both turns.
+
+    With an explicit `model` (tests) or LLM_PROVIDER≠rules, the Strands agent answers. If that LLM
+    call fails (outage, throttling, bad key) the deterministic rules bot answers instead, so a farmer
+    always gets a useful reply. LLM_PROVIDER=rules uses the rules bot directly.
+    """
     today = today or clock.today()
-    history = memory.to_messages(memory.load_turns(phone))
+    use_llm = model is not None or llm.provider() != "rules"
     ctx = TurnContext()
-    agent = build_agent(phone, history, today, model=model, ctx=ctx)
+    agent = None
+    if use_llm:
+        history = memory.to_messages(memory.load_turns(phone))
+        agent = build_agent(phone, history, today, model=model, ctx=ctx)  # raises AgentConfigError
     memory.save_turn(phone, "user", text)
     started = time.monotonic()
     error = None
     try:
-        reply = str(agent(text)).strip() or FALLBACK_REPLY
-    except AgentConfigError:
-        raise
-    except Exception as e:  # Bedrock throttling/outage: reply politely, keep the turn logged
-        log.exception("agent failed", extra={"phone": mask_phone(phone)})
-        reply, error = FALLBACK_REPLY, type(e).__name__
+        if agent is not None:
+            reply = str(agent(text)).strip() or FALLBACK_REPLY
+        else:
+            reply = rules.reply(phone, text, today, ctx.record)
+    except Exception as e:  # LLM outage/throttling → rules bot; rules failure → polite apology
+        log.exception("agent failed", extra={"phone": mask_phone(phone), "llm": use_llm})
+        error = type(e).__name__
+        reply = FALLBACK_REPLY
+        if agent is not None:
+            try:
+                reply = rules.reply(phone, text, today, ctx.record)
+            except Exception:
+                log.exception("rules fallback failed", extra={"phone": mask_phone(phone)})
     latency = int((time.monotonic() - started) * 1000)
     memory.save_turn(phone, "assistant", reply)
     log.info(

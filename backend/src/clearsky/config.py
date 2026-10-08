@@ -35,17 +35,42 @@ class Settings(BaseSettings):
     inbound_queue_url: str | None = None
     ddb_endpoint_url: str | None = None  # local DynamoDB / moto server; None means real AWS
 
-    # Agent
-    bedrock_model_id: str | None = None  # must be set by the team; never defaulted
+    # Agent. LLM_PROVIDER picks the brain of the farmer agent:
+    #   rules     deterministic slot-filling bot, no LLM, works offline (default; safe fallback)
+    #   openai    OpenAI or any OpenAI-compatible API (set LLM_BASE_URL, e.g. Groq/OpenRouter)
+    #   anthropic Anthropic API      gemini  Google Gemini API      bedrock  Amazon Bedrock
+    # Model IDs are never defaulted: the team sets LLM_MODEL_ID (or BEDROCK_MODEL_ID for bedrock).
+    llm_provider: str = "rules"
+    llm_model_id: str | None = None
+    llm_base_url: str | None = None
+    bedrock_model_id: str | None = None
     agent_temperature: float = 0.2
     agent_max_tokens: int = 600
     history_turns: int = 10
+    rate_limit_per_hour: int = 20  # agent turns per farmer phone
 
-    # WhatsApp / voice (Phase 4)
+    # WhatsApp. WA_MODE=simulator records outbound messages (dashboard simulator) instead of calling
+    # Meta; WA_MODE=cloud sends through the WhatsApp Cloud API with the WA_* secrets.
+    wa_mode: str = "simulator"
     wa_api_version: str = "v23.0"
+    wa_template_language: str = "hi"
+
+    # Voice. STT_PROVIDER: transcribe (Amazon Transcribe) | openai (OpenAI-compatible
+    # /audio/transcriptions, needs STT_MODEL_ID) | none. TTS_PROVIDER: polly | none.
+    stt_provider: str = "none"
+    stt_model_id: str | None = None
+    stt_base_url: str | None = None
+    tts_provider: str = "polly"
+    max_voice_seconds: int = 60
     transcribe_language: str = "hi-IN"
     polly_voice: str = "Kajal"
     polly_engine: str = "neural"
+
+    # Dashboard / API
+    dev_auth: bool = False  # NEVER true in a shared deployment: accepts unsigned role tokens
+    cors_origins: str = "*"
+    route_calculator_name: str | None = None  # Amazon Location route calculator; None = straight lines
+    alert_cooldown_minutes: int = 30
 
     # Season and agronomy
     district: str = "Sangrur"
@@ -119,7 +144,16 @@ SECRET_NAMES = {
     "WA_APP_SECRET": "wa/app_secret",
     "WA_VERIFY_TOKEN": "wa/verify_token",
     "FIRMS_MAP_KEY": "firms/map_key",
+    "LLM_API_KEY": "llm/api_key",
+    "STT_API_KEY": "stt/api_key",
 }
+
+
+def get_optional_secret(name: str) -> str | None:
+    try:
+        return get_secret(name)
+    except MissingSecretError:
+        return None
 
 _secret_cache: dict[str, str] = {}
 
