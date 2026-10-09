@@ -6,6 +6,7 @@ from datetime import date
 
 import pytest
 
+from clearsky.config import reset_settings
 from clearsky.domain import matching
 from clearsky.domain.matching import Booked, NoSlot, book_pickup, cancel_booking, reschedule
 from clearsky.models import BookingStatus, FieldStatus
@@ -15,6 +16,15 @@ from tests.factories import BASE_LAT, BASE_LNG, km_east
 
 TODAY = date(2026, 10, 20)
 D1 = date(2026, 10, 23)  # first bookable day for a field harvested on Oct 22
+
+
+@pytest.fixture(autouse=True)
+def _confirmed_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests cover the booking engine itself (candidates, capacity, the commit transaction, stop
+    order), so pickups are confirmed immediately. The offer stage has its own tests in test_offers.py;
+    the tests below that need it switch it back on."""
+    monkeypatch.setenv("AUTO_ACCEPT_DEMO", "true")
+    reset_settings()
 
 
 @pytest.fixture
@@ -142,6 +152,37 @@ def test_concurrent_bookings_for_last_capacity_exactly_one_succeeds(
     assert day is not None and day.booked_acres == 10
     assert FieldsRepo().get("FB").status == FieldStatus.REGISTERED  # type: ignore[union-attr]
     assert len(BookingsRepo().list_all()) == 1
+
+
+def test_concurrent_offers_for_last_capacity_exactly_one_succeeds(
+    world: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same stale-read race with offers on: capacity is reserved at offer time, so two offers can
+    never over-book a day, and an accept can't add acres a second time."""
+    monkeypatch.setenv("AUTO_ACCEPT_DEMO", "false")
+    reset_settings()
+    fx.baler("B1", acres_per_day=15)
+    fx.farmer("+919900000002")
+    fx.field("FA", acres=10, deadline=date(2026, 10, 25))  # window: Oct 23 only
+    fx.field("FB", phone="+919900000002", acres=10, deadline=date(2026, 10, 25))
+    stale = {
+        "FA": matching._load_candidates(FieldsRepo().get("FA"), TODAY),  # type: ignore[arg-type]
+        "FB": matching._load_candidates(FieldsRepo().get("FB"), TODAY),  # type: ignore[arg-type]
+    }
+    monkeypatch.setattr(matching, "_load_candidates", lambda field, today: stale[field.field_id])
+    results = [book_pickup("FA", TODAY), book_pickup("FB", TODAY)]
+    won = [r for r in results if isinstance(r, Booked)]
+    assert len(won) == 1 and won[0].status == "offered"
+    assert [r.reason for r in results if isinstance(r, NoSlot)] == ["contention"]
+    day = BalerDaysRepo().get("B1", D1)
+    assert day is not None and (day.booked_acres, day.stop_count) == (10, 1)
+
+    # two accepts of the same offer (double tap, or two devices): one wins, capacity is unchanged
+    accepts = [matching.accept_offer(won[0].booking_id, "B1"), matching.accept_offer(won[0].booking_id, "B1")]
+    assert [a.ok for a in accepts] == [True, False] and accepts[1].error == "not_offered"
+    day = BalerDaysRepo().get("B1", D1)
+    assert day is not None and (day.booked_acres, day.stop_count) == (10, 1)
+    assert [b.status for b in BookingsRepo().list_all()] == [BookingStatus.CONFIRMED]
 
 
 def test_cancel_frees_capacity_and_buyer_reservation(world: None) -> None:

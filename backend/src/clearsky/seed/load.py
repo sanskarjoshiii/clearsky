@@ -33,7 +33,11 @@ def load(data: dict[str, Any], *, reset: bool = False, prebook: bool = True) -> 
     summary: dict[str, Any] = {k: len(data[k]) for k in ("villages", "balers", "buyers", "farmers", "fields")}
     if prebook:
         ref = date.fromisoformat(data["meta"]["reference_date"])
-        results = [matching.book_pickup(fid, today=ref) for fid in data["meta"]["prebook_field_ids"]]
+        # seeded history: these pickups are already agreed, so they skip the offer stage
+        results = [
+            matching.book_pickup(fid, today=ref, auto_accept=True)
+            for fid in data["meta"]["prebook_field_ids"]
+        ]
         summary["prebooked"] = sum(1 for r in results if isinstance(r, matching.Booked))
         summary["prebook_no_slot"] = [r.field_id for r in results if isinstance(r, matching.NoSlot)]
     return summary

@@ -3,6 +3,7 @@ import { AppNotFound } from "../../components/NotFound";
 import { BalerLayout } from "./Layout";
 import { History } from "./pages/History";
 import { Profile } from "./pages/Profile";
+import { Requests } from "./pages/Requests";
 import { Schedule } from "./pages/Schedule";
 import { Today } from "./pages/Today";
 
@@ -12,6 +13,7 @@ export function Component() {
     <Routes>
       <Route element={<BalerLayout />}>
         <Route index element={<Today />} />
+        <Route path="requests" element={<Requests />} />
         <Route path="schedule" element={<Schedule />} />
         <Route path="history" element={<History />} />
         <Route path="profile" element={<Profile />} />

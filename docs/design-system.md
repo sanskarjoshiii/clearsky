@@ -61,6 +61,7 @@ Canvas 14 px · cards 10 px · controls 8 px · chips 6 px · pills full. Canvas
 | Component | File | Notes |
 |---|---|---|
 | Rail layout: icon rail · canvas · docked panel | `components/Shell.tsx` `RailLayout` | Shared by the admin and buyer apps (`apps/admin/Layout.tsx`, `apps/buyer/Layout.tsx`), each passing its own nav. 60 px rail; phone gets a bottom bar. The right panel is the farmer simulator (reference "assistant panel"), admin only. |
+| Request card | `apps/baler/pages/Requests.tsx` | One open offer: who and where, three sunken facts (day, acres, straw), a countdown pill, and two 48 px buttons (secondary Decline, ink Accept). Declining swaps the buttons for a 2×2 reason picker. No colour: an offer is not a risk state. |
 | Baler layout: top bar · bottom tabs | `apps/baler/Layout.tsx` | Phone-first: 52 px top bar, bottom tab bar with ≥ 56 px targets and Hindi labels; the tabs move into the top bar on wide screens. Steppers and day arrows are 44 px. |
 | KPI strip | `ui.tsx` `KpiStrip` | Cells divided by hairlines in one bordered box; badge = small outlined pill. |
 | Risk pill | `ui.tsx` `RiskPill` | Outlined pill with dot + word + optional score; RED pulses on the map only. |

@@ -1,6 +1,6 @@
 import { BellRing, Check, ChevronLeft, ChevronRight, Phone } from "lucide-react";
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useMarkDone, useOperatorAlerts, useOperatorMe, useRoute, useStats, useUpdateOperator } from "../../../api/hooks";
 import type { Stop } from "../../../api/types";
 import { MapView } from "../../../components/MapView";
@@ -104,6 +104,18 @@ export function Today() {
             ) : null}
           </div>
 
+          {baler?.open_requests ? (
+            <Link
+              to="/baler/requests"
+              className="flex min-h-11 items-center justify-between gap-3 rounded-[var(--radius-card)] border border-line-strong bg-sunken px-4 py-2.5 text-sm text-ink"
+            >
+              <span className="font-medium">
+                {baler.open_requests} new request{baler.open_requests === 1 ? "" : "s"} waiting · नए काम
+              </span>
+              <span className="underline">Answer</span>
+            </Link>
+          ) : null}
+
           {/* officer alerts flagged to this baler */}
           {(alerts.data ?? []).map((a) => (
             <div key={a.alert_id} className="flex items-start gap-3 rounded-[var(--radius-card)] border border-warn-line bg-warn-soft px-4 py-3 text-sm" role="status">
@@ -136,7 +148,7 @@ export function Today() {
               {route.error ? <ErrorNote error={route.error} onRetry={() => void route.refetch()} /> : null}
               {route.data && stops.length === 0 ? (
                 <Empty title="No stops on this day">
-                  New bookings from farmers near your base appear here automatically.
+                  Requests you accept appear here.
                   {baler?.next_stop_date && baler.next_stop_date !== day ? (
                     <div className="mt-3">
                       <Button variant="primary" size="lg" onClick={() => setDate(baler.next_stop_date ?? null)}>

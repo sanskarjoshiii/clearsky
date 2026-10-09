@@ -7,11 +7,11 @@ import { addDays, fmtDayLong } from "../../../lib/format";
 
 const RUNBOOK = [
   "Reset demo data (clock goes to 20 Oct).",
-  "Open the farmer simulator and send the Hinglish sample: the agent books 25 Oct.",
-  "Sign in as that baler's operator in another window: the new stop is on the route; tap Done.",
+  "Open the farmer simulator and send the Hinglish sample: the agent sends the request for 25 Oct to a baler.",
+  "Sign in as that baler in another window: open Requests and tap Accept. The farmer gets the confirmation; the stop is on the route; tap Done.",
   "Move the clock to 26 Oct, then run a harvest wave: fresh fields turn amber/red.",
   "On the radar, Alert the red village: the simulator shows the WhatsApp offer.",
-  "Tap \"HAAN, book karo\" in the simulator: the pin turns green within 10 s.",
+  "Tap \"HAAN, book karo\" in the simulator: the pin turns green within 10 s (a baler then accepts the request).",
   "Open Impact for the closing counters.",
 ];
 
@@ -91,6 +91,7 @@ export function Demo() {
               </Button>
               <Button onClick={() => run({ action: "run_risk" }, "Risk recomputed")}>Run risk now</Button>
               <Button onClick={() => run({ action: "run_reminders" }, "Reminders sent")}>Send tomorrow's reminders</Button>
+              <Button onClick={() => run({ action: "run_offers" }, "Unanswered offers moved on")}>Expire unanswered offers</Button>
               <Button variant="ghost" onClick={() => setConfirmReset(true)}>
                 <RotateCcw className="size-4" /> Reset
               </Button>

@@ -21,10 +21,11 @@ from clearsky.channels import notify
 from clearsky.channels.templates import FIELD_CLEARED
 from clearsky.config import get_settings
 from clearsky.domain import alerts as alerts_domain
-from clearsky.domain import demo, matching, registration, stats
+from clearsky.domain import demo, matching, offers, registration, stats
 from clearsky.domain.geo import haversine_km
 from clearsky.logging import get_logger, mask_phone
 from clearsky.models import ApplicationStatus, BookingStatus
+from clearsky.models.enums import FIRM_BOOKING_STATUSES
 from clearsky.repo import (
     AlertsRepo,
     ApplicationsRepo,
@@ -416,7 +417,8 @@ def baler_set_active(baler_id: str) -> dict[str, Any]:
     """Officer deactivates (or reactivates) a baler: no new bookings; existing ones stay."""
     require("officer")
     updated = registration.set_baler_active(baler_id, body(ActiveUpdate).active)
-    return {"baler": updated.model_dump(mode="json")}
+    moved = offers.expire_for_baler(baler_id) if not updated.active else None
+    return {"baler": updated.model_dump(mode="json"), "offers_moved": moved}
 
 
 @app.get("/api/applications")
@@ -515,7 +517,7 @@ def buyer_supply() -> dict[str, Any]:
     items = [
         bk
         for bk in BookingsRepo().list_all()
-        if bk.buyer_id == b.buyer_id and bk.status != BookingStatus.CANCELLED
+        if bk.buyer_id == b.buyer_id and bk.status in FIRM_BOOKING_STATUSES  # offers are not supply yet
     ]
     by_date: dict[str, dict[str, float]] = {}
     for bk in items:
@@ -593,6 +595,7 @@ def operator_me() -> dict[str, Any]:
         | {
             "base_village_name": village.name if village else None,
             "next_stop_date": next_day.isoformat() if next_day else None,
+            "open_requests": sum(1 for bk in BookingsRepo().offered() if bk.baler_id == b.baler_id),
         }
     }
 
@@ -611,6 +614,8 @@ def operator_update() -> dict[str, Any]:
     changes = {k: v for k, v in req.model_dump().items() if v is not None}
     updated = b.model_copy(update=changes)
     BalersRepo().put(updated)  # affects new bookings only
+    if b.active and not updated.active:
+        offers.expire_for_baler(b.baler_id)  # off duty: open requests move to other balers at once
     return {"baler": updated.model_dump(mode="json")}
 
 
@@ -643,8 +648,8 @@ def _route_line(points: list[tuple[float, float]]) -> list[list[float]]:
 def operator_route() -> dict[str, Any]:
     b = _baler(require("operator"))
     d = date.fromisoformat(q("date") or clock.today().isoformat())
-    stops = sorted(BookingsRepo().by_baler(b.baler_id, d), key=lambda x: (x.stop_order, x.booking_id))
-    stops = [s for s in stops if s.status != BookingStatus.CANCELLED]
+    # the route holds accepted work only; open offers live on the Requests tab
+    stops = sorted(BookingsRepo().firm_by_baler(b.baler_id, d), key=lambda x: (x.stop_order, x.booking_id))
     farmers = {f.phone: f for f in FarmersRepo().list_all()}
     villages = {v.village_id: v for v in VillagesRepo().list_all()}
     rows = []
@@ -750,6 +755,17 @@ def operator_history() -> dict[str, Any]:
     }
 
 
+@app.get("/api/operator/me/requests")
+def operator_requests() -> dict[str, Any]:
+    """Open offers for this baler: fields the matcher wants them to take, waiting for accept or decline."""
+    b = _baler(require("operator"))
+    return {
+        "requests": offers.request_rows(b),
+        "now": clock.now().isoformat(),
+        "reasons": [{"value": k, "label": v} for k, v in offers.DECLINE_REASONS.items()],
+    }
+
+
 @app.get("/api/operator/me/alerts")
 def operator_alerts() -> dict[str, Any]:
     b = _baler(require("operator"))
@@ -766,6 +782,68 @@ def operator_alerts() -> dict[str, Any]:
             }
         )
     return {"alerts": out}
+
+
+_OFFER_ERRORS = {
+    "not_found": (404, "booking not found"),
+    "forbidden": (403, "not your booking"),
+    "not_offered": (409, "this request is no longer open"),
+    "expired": (409, "this request has expired"),
+}
+
+
+def _offer_error(result: matching.OfferResult) -> ApiError:
+    status, message = _OFFER_ERRORS.get(result.error or "", (409, "conflict"))
+    return ApiError(status, result.error or "conflict", message)
+
+
+def _booking_json(bk: Any) -> dict[str, Any]:
+    out: dict[str, Any] = bk.model_dump(mode="json", exclude={"phone"})
+    return out
+
+
+@app.post("/api/bookings/<booking_id>/accept")
+def booking_accept(booking_id: str) -> dict[str, Any]:
+    """The baler accepts an offer: the pickup is confirmed and the farmer is told on WhatsApp."""
+    p = require("operator")
+    result = offers.accept(booking_id, _baler(p).baler_id)
+    if not result.ok or result.booking is None:
+        raise _offer_error(result)
+    return {"ok": True, "booking": _booking_json(result.booking)}
+
+
+class DeclineRequest(BaseModel):
+    reason: str
+    note: str | None = PField(default=None, max_length=300)
+
+
+@app.post("/api/bookings/<booking_id>/decline")
+def booking_decline(booking_id: str) -> dict[str, Any]:
+    """The baler declines with a reason: capacity is released and the next-best baler gets the offer."""
+    p = require("operator")
+    req = body(DeclineRequest)
+    if req.reason not in offers.DECLINE_REASONS:
+        raise ApiError(400, "bad_request", "unknown reason")
+    result, _next = offers.decline(
+        booking_id, _baler(p).baler_id, req.reason, (req.note or "").strip() or None
+    )
+    if not result.ok or result.booking is None:
+        raise _offer_error(result)
+    return {"ok": True, "booking": _booking_json(result.booking)}
+
+
+@app.post("/api/bookings/<booking_id>/reassign")
+def booking_reassign(booking_id: str) -> dict[str, Any]:
+    """The officer moves an unanswered offer to the next baler without waiting for the SLA."""
+    require("officer")
+    result, following = offers.reassign(booking_id)
+    if not result.ok or result.booking is None:
+        raise _offer_error(result)
+    return {
+        "ok": True,
+        "booking": _booking_json(result.booking),
+        "next": following.model_dump(mode="json") if following else None,
+    }
 
 
 @app.post("/api/bookings/<booking_id>/done")

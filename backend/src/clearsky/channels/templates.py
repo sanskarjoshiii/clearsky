@@ -44,7 +44,33 @@ FIELD_CLEARED = Template(
     "✅ {{1}} ji, aapka khet aaj saaf ho gaya. Parali na jalane ke liye dhanyavaad! 🙏",
 )
 
-ALL = {t.name: t for t in (PICKUP_REMINDER, BALER_TOMORROW, VILLAGE_ALERT, FIELD_CLEARED)}
+# Offer lifecycle (issue #3): the farmer hears "confirmed" only after a baler accepted.
+BOOKING_CONFIRMED = Template(
+    "booking_confirmed",
+    "✅ {{1}} ji, {{2}} ko baler {{3}} aapka khet saaf karne aayega. Parali na jalayein. 🙏",
+)
+BOOKING_CHANGED = Template(
+    "booking_changed",
+    "📨 {{1}} ji, aapki pickup ki tareekh badal kar {{2}} ho gayi hai. Baler ke confirm karte hi batayenge.",
+)
+BOOKING_DELAYED = Template(
+    "booking_delayed",
+    "{{1}} ji, abhi tak kisi baler ne aapki pickup confirm nahi ki. Officer ko bata diya hai, "
+    "jaldi sampark hoga. Kripya parali na jalayein. 🙏",
+)
+
+ALL = {
+    t.name: t
+    for t in (
+        PICKUP_REMINDER,
+        BALER_TOMORROW,
+        VILLAGE_ALERT,
+        FIELD_CLEARED,
+        BOOKING_CONFIRMED,
+        BOOKING_CHANGED,
+        BOOKING_DELAYED,
+    )
+}
 
 # Button ids: "<action>:<field_id>". They come back as interactive reply ids or template payloads.
 CONFIRM = "confirm"  # harvest is happening as planned

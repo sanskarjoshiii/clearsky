@@ -84,8 +84,12 @@ def test_detect_language() -> None:
 
 def test_one_message_booking_hinglish(seeded: None) -> None:
     reply = run_turn("+919900000101", "Mera 8 acre dhaan 24 tareekh ko katega, Bhawanigarh. Naam Gurpreet.")
-    assert reply.text.startswith("✅ Gurpreet ji, 8 acre ka khet 25 Oct ko saaf hoga")
+    # the request goes to a baler first: no ✅ and no promise until the baler accepts (issue #3)
+    assert reply.text.startswith(
+        "📨 Gurpreet ji, 8 acre ke khet ki request 25 Oct ke liye baler ko bhej di hai. Confirm hote hi batayenge."
+    )
     assert reply.booking is not None and reply.booking["pickup_date"] == "2026-10-25"
+    assert reply.booking["status"] == "offered" and reply.booking["confirmed"] is False
     [f] = FieldsRepo().by_farmer("+919900000101")
     assert f.status == FieldStatus.BOOKED and f.village_id == "V002"
 
@@ -97,29 +101,32 @@ def test_multi_turn_conversation(seeded: None) -> None:
     assert run_turn(phone, "Bhawanigarh").text == rules.t("ask_acres", rules.HINGLISH)
     assert run_turn(phone, "6").text == rules.t("ask_date", rules.HINGLISH)
     final = run_turn(phone, "kal")
-    assert final.text.startswith("✅ Harjit ji, 6 acre ka khet 22 Oct")
+    assert final.text.startswith("📨 Harjit ji, 6 acre ke khet ki request 22 Oct")
 
 
 def test_hindi_devanagari(seeded: None) -> None:
     reply = run_turn("+919900000103", "मेरा नाम गुरप्रीत है, भवानीगढ़, 8 एकड़, 24 तारीख")
-    assert reply.text.startswith("✅ गुरप्रीत जी") and "25 अक्टूबर" in reply.text
+    assert reply.text.startswith("📨 गुरप्रीत जी") and "25 अक्टूबर" in reply.text and "कन्फ़र्म होते ही" in reply.text
 
 
 def test_punjabi_gurmukhi(seeded: None) -> None:
     reply = run_turn("+919900000104", "ਮੇਰਾ ਨਾਂ ਹਰਜੀਤ, ਪਿੰਡ ਭਵਾਨੀਗੜ੍ਹ, 5 ਏਕੜ, 23 ਤਾਰੀਖ")
-    assert reply.text.startswith("✅ ਹਰਜੀਤ ਜੀ") and "24 ਅਕਤੂਬਰ" in reply.text
+    assert reply.text.startswith("📨 ਹਰਜੀਤ ਜੀ") and "24 ਅਕਤੂਬਰ" in reply.text
 
 
 def test_english(seeded: None) -> None:
     reply = run_turn("+919900000105", "My name is Aman, village Sunam, 10 acres, harvest on 26 Oct")
-    assert reply.text.startswith("✅ Aman, your 10-acre field will be cleared on 27 Oct")
+    assert reply.text.startswith(
+        "📨 Aman, your request for the 10-acre field on 27 Oct has been sent to a baler"
+    )
 
 
 def test_status_off_topic_and_cancel(seeded: None) -> None:
     phone = "+919900000106"
     booked = run_turn(phone, "Naam Gurpreet, Bhawanigarh, 8 acre, 24 tareekh")
-    assert booked.text.startswith("✅")
-    assert run_turn(phone, "kab aayega baler?").text.startswith("Aapki booking: 25 Oct")
+    assert booked.text.startswith("📨")
+    # status shows the request and says it is still waiting for the baler
+    assert run_turn(phone, "kab aayega baler?").text == "Aapki booking: 25 Oct (8) ⏳ confirm hona baaki"
     assert run_turn(phone, "cricket score?").text == rules.t("off_topic", rules.HINGLISH)
     assert run_turn(phone, "booking cancel karo").text.startswith("❌")
     [bk] = BookingsRepo().list_all()
@@ -134,7 +141,7 @@ def test_unknown_village_is_asked_again(seeded: None) -> None:
     phone = "+919900000108"
     assert run_turn(phone, "naam Raju, 5 acre, kal").text == rules.t("ask_village", rules.HINGLISH)
     assert "'Mumbai'" in run_turn(phone, "Mumbai").text
-    assert run_turn(phone, "Sunam").text.startswith("✅ Raju ji, 5 acre")
+    assert run_turn(phone, "Sunam").text.startswith("📨 Raju ji, 5 acre")
 
 
 def test_yes_after_reminder_confirms_and_books(ddb: None) -> None:
@@ -146,7 +153,25 @@ def test_yes_after_reminder_confirms_and_books(ddb: None) -> None:
     reply = run_turn("+919900000109", "haan")
     f = FieldsRepo().get("FR1")
     assert f is not None and f.harvest_confirmed and f.status == FieldStatus.BOOKED
-    assert reply.text.startswith("✅ Balwinder ji")
+    assert reply.text.startswith("📨 Balwinder ji")
+
+
+def test_confirmation_arrives_when_the_baler_accepts(seeded: None) -> None:
+    from clearsky.domain import offers
+    from clearsky.repo import ConversationsRepo
+
+    phone = "+919900000111"
+    sent = run_turn(phone, "Naam Gurpreet, Bhawanigarh, 8 acre, 24 tareekh")
+    assert sent.booking is not None and sent.booking["status"] == "offered"
+    [bk] = BookingsRepo().list_all()
+    assert bk.status == BookingStatus.OFFERED
+    assert offers.accept(bk.booking_id, bk.baler_id).ok
+    confirmation = ConversationsRepo().last(phone, 1)[0].text
+    assert confirmation.startswith("✅ Gurpreet ji, 25 Oct ko baler ")
+    assert run_turn(phone, "kab aayega baler?").text == "Aapki booking: 25 Oct (8)"
+    # the 📨 / ✅ messages closed that request: a new message starts a new one, not a repeat
+    second = run_turn(phone, "ek aur khet, 4 acre, 26 tareekh")
+    assert second.text.startswith("📨 Gurpreet ji, 4 acre") and len(BookingsRepo().list_all()) == 2
 
 
 def test_no_then_new_date_reschedules(seeded: None) -> None:
@@ -154,4 +179,4 @@ def test_no_then_new_date_reschedules(seeded: None) -> None:
     run_turn(phone, "Naam Gurpreet, Bhawanigarh, 8 acre, 24 tareekh")
     assert run_turn(phone, "nahi").text == rules.t("ask_new_date", rules.HINGLISH)
     moved = run_turn(phone, "28 tareekh")
-    assert moved.text.startswith("✅") and "29 Oct" in moved.text
+    assert moved.text.startswith("📨") and "29 Oct" in moved.text

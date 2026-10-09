@@ -11,6 +11,7 @@ Three role apps, each with its own base path, layout, navigation and lazy-loaded
 | | `/admin/demo` | DEMO_MODE only: demo clock, harvest wave, run risk/reminders, reset, runbook |
 | | side panel | WA_MODE=simulator only: **farmer simulator**, chat as a farmer through the real WhatsApp pipeline |
 | **Baler** (operator), phone-first | `/baler` | Today: stop list with Call + big **Done**, route map, availability |
+| | `/baler/requests` | Open offers: **Accept · स्वीकार** or **Decline · मना करें** (with a reason) before the countdown ends |
 | | `/baler/schedule` | Next 14 days: stops and booked acres per day (a day opens its route) |
 | | `/baler/history` | Cleared fields with season totals |
 | | `/baler/profile` | Acres/day, working radius, availability, contact number, sign out |

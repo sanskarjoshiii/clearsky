@@ -85,7 +85,7 @@ def test_webhook_inline_booking_and_dedupe(seeded: None) -> None:
     resp = post(wa_payload(text_msg("wamid.1", MSG)))
     assert resp["statusCode"] == 200 and json.loads(resp["body"]) == {"queued": 1}
     convo = texts()
-    assert convo[0] == ("user", MSG) and convo[-1][1].startswith("✅ Gurpreet ji")
+    assert convo[0] == ("user", MSG) and convo[-1][1].startswith("📨 Gurpreet ji")
     assert ProcessedMessagesRepo().status("wamid.1") == "done"
     # Meta retries the same message id → ignored
     again = post(wa_payload(text_msg("wamid.1", MSG)))
@@ -103,7 +103,7 @@ def test_webhook_enqueues_when_queue_configured(seeded: None, monkeypatch: pytes
     assert len(msgs) == 1 and ConversationsRepo().last(PHONE, 5) == []  # not processed yet
     result = processor.handler({"Records": [{"messageId": "x", "body": msgs[0]["Body"]}]}, Ctx())
     assert result == {"batchItemFailures": []}
-    assert texts()[-1][1].startswith("✅")
+    assert texts()[-1][1].startswith("📨")
     assert ProcessedMessagesRepo().status("wamid.2") == "done"
 
 
@@ -120,7 +120,7 @@ def test_button_confirm_books_unbooked_field(seeded: None) -> None:
     fx.farmer(PHONE, village_id="V002", name="Balwinder")
     fx.field("F9", phone=PHONE, village_id="V002", harvest=date(2026, 10, 21), lat=30.266, lng=76.039)
     sent = processor.process_inbound(inbound(type="button", button_id="confirm:F9", text="HAAN"))
-    assert sent[0].startswith("✅ Balwinder ji")
+    assert sent[0].startswith("📨 Balwinder ji")
     f = FieldsRepo().get("F9")
     assert f is not None and f.harvest_confirmed and f.status == FieldStatus.BOOKED
 
@@ -131,7 +131,7 @@ def test_button_later_then_new_date(seeded: None) -> None:
     sent = processor.process_inbound(inbound(type="button", button_id=f"later:{f.field_id}", text="NAHI"))
     assert "Nayi katai" in sent[0]
     moved = processor.process_inbound(inbound(type="text", text="28 tareekh", msg_id="b"))
-    assert moved[0].startswith("✅") and "29 Oct" in moved[0]
+    assert moved[0].startswith("📨") and "29 Oct" in moved[0]
 
 
 def test_button_for_someone_elses_field_is_ignored(seeded: None) -> None:
@@ -175,7 +175,7 @@ def test_voice_note_transcribed_goes_to_agent(seeded: None, monkeypatch: pytest.
         sent = processor.process_inbound(inbound(type="audio", media_id="med"))
     finally:
         notify.set_client(None)
-    assert sent[0] == processor.TEXTS["listening"] and sent[1].startswith("✅")
+    assert sent[0] == processor.TEXTS["listening"] and sent[1].startswith("📨")
 
 
 def test_rate_limit(seeded: None, monkeypatch: pytest.MonkeyPatch) -> None:

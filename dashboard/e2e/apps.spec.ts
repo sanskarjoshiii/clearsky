@@ -36,6 +36,8 @@ test("baler reaches every baler page on a phone and is kept out of the other app
   await page.goto("/baler?as=operator.B01");
   await expect(page.getByText("Today's stops")).toBeVisible();
   const tabs = page.getByRole("navigation", { name: "Baler" }).last();
+  await tabs.getByRole("link", { name: /Requests/ }).click();
+  await expect(page.getByRole("heading", { name: /Requests/ })).toBeVisible();
   await tabs.getByRole("link", { name: /Schedule/ }).click();
   await expect(page.getByRole("heading", { name: /Next 14 days/ })).toBeVisible();
   await tabs.getByRole("link", { name: /History/ }).click();

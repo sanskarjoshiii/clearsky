@@ -30,24 +30,33 @@ test("farmer books in the WhatsApp simulator", async ({ page }) => {
   await panel.getByLabel("Farmer phone number").fill(phone);
   await panel.getByLabel("Farmer message").fill("Naam Simran, Bhawanigarh, 6 acre, 24 tareekh");
   await panel.getByRole("button", { name: "Send" }).click();
-  await expect(panel.getByText(/✅ Simran ji, 6 acre ka khet/)).toBeVisible();
+  // the request goes to a baler first; the ✅ confirmation comes when the baler accepts
+  await expect(panel.getByText(/📨 Simran ji, 6 acre ke khet ki request/)).toBeVisible();
 });
 
-test("operator sees the new stop and marks it done", async ({ page, request }) => {
+test("baler accepts the request, sees the stop on the route and marks it done", async ({ page, request }) => {
   const phone = `+9199998${String(Date.now()).slice(-5)}`;
   // unique, letters-only surname so reruns against the same dev server never collide
   const surname = "Q" + String(Date.now()).slice(-6).replace(/\d/g, (d) => "abcdefghij"[Number(d)] ?? "x");
   const farmer = `Jaspal ${surname}`;
   const { sent } = await bookViaWhatsApp(request, phone, `Naam ${farmer}, Sunam, 4 acre, kal`);
-  expect(sent[0]).toContain("✅");
+  expect(sent[0]).toContain("📨");
   const bookings = (await (await request.get(`${API}/api/bookings`, { headers: OFFICER })).json()) as {
     bookings: { farmer_name: string; baler_id: string; date: string; status: string }[];
   };
-  const mine = bookings.bookings.find((b) => b.farmer_name === farmer && b.status === "CONFIRMED");
+  const mine = bookings.bookings.find((b) => b.farmer_name === farmer && b.status === "OFFERED");
   expect(mine).toBeTruthy();
 
-  // open the baler's route on the booking's day
-  await page.goto(`/baler?as=operator.${mine!.baler_id}&date=${mine!.date}`);
+  // the baler answers the request
+  await page.goto(`/baler/requests?as=operator.${mine!.baler_id}`);
+  const card = page.locator("li", { hasText: farmer });
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: /Accept/ }).click();
+  await expect(page.getByText(/^Accepted\./)).toBeVisible();
+  await expect(card).toHaveCount(0);
+
+  // now it is a stop on the route for that day
+  await page.goto(`/baler?date=${mine!.date}`);
   await expect(page.getByText("Today's stops")).toBeVisible();
   const stop = page.locator("li", { hasText: farmer });
   await expect(stop).toBeVisible();

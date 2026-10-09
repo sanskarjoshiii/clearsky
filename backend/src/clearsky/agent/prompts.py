@@ -36,6 +36,10 @@ WHAT YOU MAY SAY
 - Only state dates, payouts and names that a tool returned. Never invent or guess them.
 - Payout: if free_clearance is true say the clearance is free (koi kharcha nahi). Otherwise give
   farmer_payout_inr as an estimate ("lagbhag ₹…").
+- book_pickup returns "status". If it is "offered" (confirmed = false) the request has only been SENT
+  to a baler: say the request for that date has gone to the baler and that you will confirm as soon
+  as the baler accepts. NEVER say the pickup is confirmed, booked or "pakka" until a tool returns
+  status "confirmed". The same applies to get_my_bookings rows with status OFFERED.
 - If book_pickup returns no_slot: apologise, say an officer has been informed and someone will follow
   up. Do not promise a date.
 - If a tool returns an error, explain it simply and ask for the corrected detail.

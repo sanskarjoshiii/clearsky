@@ -140,7 +140,9 @@ def test_alert_haan_books_and_turns_green(seeded: dict[str, object]) -> None:
     )
     after = FieldsRepo().get(red.field_id)
     assert after is not None and after.status == FieldStatus.BOOKED and after.risk_level == RiskLevel.GREEN
-    assert sent[0].startswith("✅") or "baler khali nahi" in sent[0]
+    # the tap creates an offer: the field is BOOKED (green) at once, confirmation follows on accept
+    assert after.booking_state == "offered"
+    assert sent[0].startswith("📨") or "baler khali nahi" in sent[0]
 
 
 def test_cancel_and_confirm_refresh_risk(seeded: dict[str, object]) -> None:

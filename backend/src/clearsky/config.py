@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     w_cluster: float = 5.0
     matcher_max_attempts: int = 3
 
+    # Offers: a booking is first offered to the best baler, who accepts or declines on the dashboard.
+    offer_sla_minutes: int = 120  # no answer in this time → the offer expires and goes to the next baler
+    offer_max_attempts: int = 3  # after this many balers, escalate to the officer
+    auto_accept_demo: bool = False  # true = book instantly as CONFIRMED (the pre-offer behaviour)
+
     # Pricing: DEMO PARAMETERS ONLY, never shown as real market prices (IMPLEMENTATION.md §5)
     baling_cost_per_acre: float = 600.0
     transport_cost_per_tonne_km: float = 8.0

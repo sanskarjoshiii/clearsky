@@ -61,6 +61,7 @@ class Field(_Model):
     harvest_confirmed: bool = False
     status: FieldStatus = FieldStatus.REGISTERED
     booking_id: str | None = None
+    booking_state: str | None = None  # "offered" | "confirmed" while status is BOOKED (for the UI)
     risk_score: int = 0
     risk_level: RiskLevel = RiskLevel.GREEN
     risk_reasons: list[str] = PField(default_factory=list)
@@ -125,6 +126,13 @@ class Booking(_Model):
     status: BookingStatus = BookingStatus.CONFIRMED
     created_at: datetime
     done_at: datetime | None = None
+    # offer lifecycle (OFFERED → CONFIRMED | DECLINED | EXPIRED)
+    attempt: int = 1  # 1 = first baler asked for this field, 2 = second, …
+    offered_at: datetime | None = None
+    expires_at: datetime | None = None
+    responded_at: datetime | None = None
+    decline_reason: str | None = None
+    decline_note: str | None = None
 
 
 class Application(_Model):

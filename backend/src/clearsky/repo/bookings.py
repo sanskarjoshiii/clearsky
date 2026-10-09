@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 
 from clearsky.models import Booking, BookingStatus, from_item, to_item
 from clearsky.repo.base import batch_put, query_all, scan_all, table
@@ -33,6 +33,16 @@ class BookingsRepo:
 
     def confirmed_by_baler(self, baler_id: str, start: date, end: date | None = None) -> list[Booking]:
         return [b for b in self.by_baler(baler_id, start, end) if b.status == BookingStatus.CONFIRMED]
+
+    def firm_by_baler(self, baler_id: str, start: date, end: date | None = None) -> list[Booking]:
+        """Confirmed or done stops: what a baler's route shows (never open offers)."""
+        firm = (BookingStatus.CONFIRMED, BookingStatus.DONE)
+        return [b for b in self.by_baler(baler_id, start, end) if b.status in firm]
+
+    def offered(self) -> list[Booking]:
+        """Every open offer (a filtered scan: fine at district scale)."""
+        items = scan_all(self.t, Attr("status").eq(BookingStatus.OFFERED.value))
+        return [from_item(Booking, i) for i in items]
 
     def by_field(self, field_id: str) -> list[Booking]:
         items = query_all(

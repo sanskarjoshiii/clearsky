@@ -149,6 +149,19 @@ MSG: dict[str, dict[str, str]] = {
         PA: "✅ {name} ਜੀ, {acres} ਏਕੜ ਦਾ ਖੇਤ {date} ਨੂੰ ਸਾਫ਼ ਹੋਵੇਗਾ। ਬੇਲਰ: {operator}। {money}",
         EN: "✅ {name}, your {acres}-acre field will be cleared on {date}. Baler: {operator}. {money}",
     },
+    # The request is with a baler who has not accepted yet: no ✅ and no promise (issue #3).
+    "offered": {
+        HINGLISH: "📨 {name} ji, {acres} acre ke khet ki request {date} ke liye baler ko bhej di hai. Confirm hote hi batayenge. {money}",
+        HI: "📨 {name} जी, {acres} एकड़ के खेत की रिक्वेस्ट {date} के लिए बेलर को भेज दी है। कन्फ़र्म होते ही बताएँगे। {money}",
+        PA: "📨 {name} ਜੀ, {acres} ਏਕੜ ਦੇ ਖੇਤ ਦੀ ਬੇਨਤੀ {date} ਲਈ ਬੇਲਰ ਨੂੰ ਭੇਜ ਦਿੱਤੀ ਹੈ। ਪੱਕਾ ਹੁੰਦੇ ਹੀ ਦੱਸਾਂਗੇ। {money}",
+        EN: "📨 {name}, your request for the {acres}-acre field on {date} has been sent to a baler. We'll confirm as soon as they accept. {money}",
+    },
+    "awaiting": {
+        HINGLISH: "confirm hona baaki",
+        HI: "कन्फ़र्म होना बाकी",
+        PA: "ਪੱਕਾ ਹੋਣਾ ਬਾਕੀ",
+        EN: "waiting for the baler",
+    },
     "free": {HINGLISH: "Koi kharcha nahi.", HI: "कोई खर्चा नहीं।", PA: "ਕੋਈ ਖ਼ਰਚਾ ਨਹੀਂ।", EN: "Free of cost."},
     "payout": {
         HINGLISH: "Aapko lagbhag ₹{amount} milenge (anumaan).",
@@ -515,12 +528,18 @@ class Draft:
             self.village_unknown = unknown
 
 
+# A reply starting with one of these closes the current request: the next message starts a new draft.
+_OUTCOME_MARKS = ("✅", "❌", "📨")
+_OPEN = ("CONFIRMED", "OFFERED")
+
+
 def _build_draft(phone: str, text: str, today: date) -> tuple[Draft, str | None]:
-    """Replay user turns since the last ✅/❌ confirmation, then the new message."""
+    """Replay user turns since the last booking outcome (✅ confirmed, 📨 sent to a baler, ❌ cancelled),
+    then the new message."""
     turns = load_turns(phone, 20)
     start = 0
     for i, tn in enumerate(turns):
-        if tn.role == "assistant" and tn.text.startswith(("✅", "❌")):
+        if tn.role == "assistant" and tn.text.startswith(_OUTCOME_MARKS):
             start = i + 1
     draft = Draft()
     last_assistant: str | None = None
@@ -572,10 +591,10 @@ def reply(phone: str, text: str, today: date, record: Any) -> str:
 
     if _CANCEL.search(text):
         bookings = call("get_my_bookings", tools.get_my_bookings, phone)["bookings"]
-        confirmed = [b for b in bookings if b["status"] == "CONFIRMED"]
-        if not confirmed:
+        open_bookings = [b for b in bookings if b["status"] in _OPEN]
+        if not open_bookings:
             return t("no_bookings", lang)
-        call("cancel_booking", tools.cancel_booking, phone, confirmed[-1]["booking_id"])
+        call("cancel_booking", tools.cancel_booking, phone, open_bookings[-1]["booking_id"])
         return t("cancelled", lang)
 
     draft, last_assistant = _build_draft(phone, text, today)
@@ -610,12 +629,15 @@ def reply(phone: str, text: str, today: date, record: Any) -> str:
         bookings = [
             b
             for b in call("get_my_bookings", tools.get_my_bookings, phone)["bookings"]
-            if b["status"] == "CONFIRMED"
+            if b["status"] in _OPEN
         ]
         if not bookings:
             return t("no_bookings", lang)
         items = ", ".join(
-            fmt_date(date.fromisoformat(b["pickup_date"]), lang) + f" ({b['acres']:g})" for b in bookings
+            fmt_date(date.fromisoformat(b["pickup_date"]), lang)
+            + f" ({b['acres']:g})"
+            + (f" ⏳ {t('awaiting', lang)}" if b["status"] == "OFFERED" else "")
+            for b in bookings
         )
         return t("status", lang, items=items)
 
@@ -666,7 +688,7 @@ def _result_text(result: dict[str, Any], name: str, acres: float, lang: str) -> 
 
 def _booked_text(result: dict[str, Any], name: str, acres: float, lang: str) -> str:
     return t(
-        "booked",
+        "offered" if result.get("status") == "offered" else "booked",
         lang,
         name=name,
         acres=f"{acres:g}",
