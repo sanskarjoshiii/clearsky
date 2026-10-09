@@ -268,6 +268,15 @@ The temporary token dies after 24 h.
 3. **Generate new token** → app ClearSky → permissions `whatsapp_business_messaging`, `whatsapp_business_management` → copy.
 4. Replace `WA_ACCESS_TOKEN` in `.env` → `.\scripts\put_secrets.ps1`.
 
+### 7.4b Use our own WhatsApp number (instead of Meta's test number)
+The test number only reaches ≤ 5 verified phones. To let any farmer message **our own number**, see the step-by-step list in `docs/issues/04-setup-aws-llm-whatsapp-end-to-end.md` §F:
+1. Use a number that is not on the WhatsApp app.
+2. Add it in WhatsApp Manager and register it for the Cloud API.
+3. Add a payment method.
+4. Get business verification.
+5. Switch the app to Live.
+6. Update `WA_PHONE_NUMBER_ID`.
+
 ### 7.5 Message templates (for reminders, alerts, "field cleared")
 Submit the 4 templates in `docs/whatsapp_templates.md` exactly as written (**WhatsApp Manager → Message templates → Create**, category **Utility**, language **Hindi**). Until approved, these messages only reach farmers who wrote in the last 24 h.
 
