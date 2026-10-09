@@ -69,6 +69,9 @@ class Settings(BaseSettings):
 
     # Dashboard / API
     dev_auth: bool = False  # NEVER true in a shared deployment: accepts unsigned role tokens
+    # Local dev sign-in only (DEV_AUTH): every dev account uses this password. Not a real secret; the
+    # deployed dashboard uses Cognito passwords.
+    dev_password: str = "clearsky-dev"
     user_pool_id: str | None = (
         None  # Cognito pool for approving self-registered users; None = no Cognito calls
     )

@@ -2,7 +2,7 @@ import { Factory, Tractor, type LucideIcon } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { useMyApplication } from "../../api/hooks";
-import { PENDING_HOME, homeFor, useAuth } from "../../auth/AuthProvider";
+import { PENDING_HOME, homeFor, loginFor, useAuth } from "../../auth/AuthProvider";
 import { Loading } from "../../auth/RequireRole";
 import { AuthFrame } from "../../components/AuthFrame";
 import { Button, cx, ErrorNote, Field, Input, Skeleton } from "../../components/ui";
@@ -145,31 +145,42 @@ function CognitoAccount({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** Step 2 (local dev, DEV_AUTH): no Cognito, so a new applicant is just a fresh `pending` dev identity. */
-function DevAccount({ onDone }: { onDone: () => void }) {
-  const { signInDev } = useAuth();
+/** Step 2 (local dev, DEV_AUTH): no Cognito, so the account is the email plus the shared dev password. */
+function DevAccount({ role, onDone }: { role: ApplyRole; onDone: () => void }) {
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const go = async () => {
+  const go = async (e: FormEvent) => {
+    e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await signInDev("pending", `applicant${Date.now().toString(36)}`);
+      await signIn(role, email.trim(), password);
       onDone();
-    } catch (e) {
-      setError(e);
+    } catch (err) {
+      setError(err);
     } finally {
       setBusy(false);
     }
   };
   return (
-    <div className="space-y-3">
+    <form className="space-y-4" onSubmit={(e) => void go(e)}>
+      <Field label="Email" hint="You sign in with this email later">
+        <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
+      <Field label="Password">
+        <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+      </Field>
       {error ? <ErrorNote error={error} /> : null}
-      <Button variant="primary" className="w-full" loading={busy} onClick={() => void go()}>
-        Continue as a new applicant
+      <Button variant="primary" type="submit" className="w-full" loading={busy}>
+        Create account
       </Button>
-      <p className="text-xs text-faint">Local development (DEV_AUTH): no email or password. The deployed dashboard asks for both and verifies the email.</p>
-    </div>
+      <p className="text-xs text-faint">
+        Local development (DEV_AUTH): use the dev password (DEV_PASSWORD). The deployed dashboard lets you choose your own password and verifies the email.
+      </p>
+    </form>
   );
 }
 
@@ -182,7 +193,8 @@ export function Register() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editing = params.get("edit") === "1";
-  const [role, setRoleState] = useState<ApplyRole | null>(readRole);
+  const asked = params.get("role"); // from "Create an account" on the baler or buyer sign-in page
+  const [role, setRoleState] = useState<ApplyRole | null>(() => (asked === "operator" || asked === "buyer" ? asked : readRole()));
   const mine = useMyApplication(me?.role === "pending", false);
   const setRole = (r: ApplyRole) => {
     setRoleState(r);
@@ -216,7 +228,7 @@ export function Register() {
             signedIn ? (
               <ApplicationForm key={chosen} role={chosen} previous={editing ? app : null} onSubmitted={() => navigate(PENDING_HOME, { replace: true })} />
             ) : env.authMode === "dev" ? (
-              <DevAccount onDone={() => undefined} />
+              <DevAccount role={chosen} onDone={() => undefined} />
             ) : (
               <CognitoAccount onDone={() => undefined} />
             )
@@ -228,7 +240,7 @@ export function Register() {
       {!signedIn ? (
         <p className="mt-6 text-sm text-muted">
           Already have an account?{" "}
-          <Link to="/login" className="text-ink underline">
+          <Link to={chosen ? loginFor(chosen) : "/login"} className="text-ink underline">
             Sign in
           </Link>
         </p>

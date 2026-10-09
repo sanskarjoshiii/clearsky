@@ -1,7 +1,7 @@
 import { Navigate, createBrowserRouter, useLocation } from "react-router";
 import { homeFor, useAuth } from "./auth/AuthProvider";
 import { Loading, RequireRole } from "./auth/RequireRole";
-import { Login } from "./pages/Login";
+import { Login, RoleLogin } from "./pages/Login";
 import { Pending } from "./pages/register/Pending";
 import { Register } from "./pages/register/Register";
 
@@ -35,7 +35,11 @@ function NotFound() {
  */
 export const router = createBrowserRouter([
   { path: "/", element: <Home /> },
+  // Separate sign-in per role. /login only offers baler and buyer; the admin address is not linked anywhere.
   { path: "/login", element: <Login /> },
+  { path: "/admin/login", element: <RoleLogin key="officer" role="officer" /> },
+  { path: "/baler/login", element: <RoleLogin key="operator" role="operator" /> },
+  { path: "/buyer/login", element: <RoleLogin key="buyer" role="buyer" /> },
   // lazy: the impact page draws a chart, and the chart library stays out of the main bundle
   { path: "/impact", lazy: () => import("./pages/Impact"), hydrateFallbackElement: <Loading /> },
   // self-registration: /register is public (sign-up + application form); /pending is the waiting room

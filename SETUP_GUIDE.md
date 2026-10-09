@@ -50,7 +50,7 @@ git pull
 .\make.ps1 dashboard            # opens on http://localhost:5173
 ```
 
-1. Open <http://localhost:5173>. Choose **Admin → Enter** (the district officer).
+1. Open <http://localhost:5173/admin/login> and sign in as the district officer: `admin@clearsky.local`, password `clearsky-dev`. (Each role has its own sign-in page: balers use `/baler/login` with e.g. `b01@clearsky.local`, buyers `/buyer/login` with e.g. `by03@clearsky.local`, same local password. On the deployed stack everyone uses their own Cognito email and password.)
 2. Click the round **violet chat button** at the bottom-left of the rail. The **Farmer on WhatsApp** panel opens.
 3. Tap the **Hinglish** sample, or type: `Mera 8 acre dhaan 24 tareekh ko katega, Bhawanigarh. Naam Gurpreet.` The agent books a baler and replies.
 4. In a second browser window go to <http://localhost:5173/baler?as=operator.B01> and press **Next stops**. Your farmer's field is a stop; press **Done · हो गया** and the farmer panel gets "khet saaf ho gaya ✅".

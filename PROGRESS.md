@@ -17,7 +17,7 @@ Legend: ✅ done · 🟡 code complete and tested; a Definition-of-Done item is 
 
 Post-phase work (GitHub issues, see the log at the end): #2 role apps + routing · #1 self-registration + approval · #3 baler accept/decline · #5 pollution avoided. All four are implemented locally; what was and was not verified is listed per issue below.
 
-Test suite on this branch (2026-10-09): **222 backend tests** passed, ruff and mypy clean; **24 Vitest** passed, `tsc` clean. Playwright was run on the complete stack (top branch), not on this branch alone.
+Test suite on this branch (2026-10-09, the complete stack): **223 backend tests** passed, ruff and mypy clean; **25 Vitest** passed, `tsc` and `npm run build` clean; **13 Playwright** tests passed; `sam validate --lint` reports a valid template.
 
 ---
 

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import type { AppRole, Role } from "../api/types";
 import { Skeleton, useToast } from "../components/ui";
-import { APPS, homeFor, useAuth } from "./AuthProvider";
+import { APPS, homeFor, loginFor, useAuth } from "./AuthProvider";
 
 export function Loading() {
   return (
@@ -23,7 +23,7 @@ function WrongApp({ own, wanted }: { own: Role; wanted: AppRole }) {
 }
 
 /**
- * Gate for one role's app. Signed-out visitors go to the login page, which sends them back to the
+ * Gate for one role's app. Signed-out visitors go to that role's own login page, which sends them back to the
  * URL they asked for (`state.from`); signed-in users of another role go to their own home, and
  * users who registered but are not approved yet go to `/pending`.
  */
@@ -31,7 +31,8 @@ export function RequireRole({ role }: { role: AppRole }) {
   const { me, loading } = useAuth();
   const location = useLocation();
   if (loading) return <Loading />;
-  if (!me) return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
+  // each app has its own sign-in page: /admin/login, /baler/login, /buyer/login
+  if (!me) return <Navigate to={loginFor(role)} replace state={{ from: `${location.pathname}${location.search}` }} />;
   if (me.role !== role) return <WrongApp own={me.role} wanted={role} />;
   return <Outlet />;
 }

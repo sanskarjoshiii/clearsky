@@ -37,7 +37,7 @@ clearsky stops paddy stubble burning in Punjab/Haryana by fixing the logistics: 
 Phase status (mirror of `PROGRESS.md`): 0 🟡 · 1 🟡 · 2 🟡 · 3 🟡 · 4 🟡 · 5 🟡 · 6 🟡 · 7 🟡 · 8 ⬜ (stretch) · 9 🟡
 
 ### How to run things (Windows: `.\make.ps1 X`; macOS/Linux: `make X`)
-- **Whole system locally, no keys:** `dev` (API on :8787: mock DB + seed + simulator + dev login) and `dashboard` (http://localhost:5173). Dev URLs: `/admin?as=officer.Sangrur&sim=1`, `/baler?as=operator.B01`, `/buyer?as=buyer.BY03`, `/register` (new applicant). Old `/officer…` and `/operator` links redirect.
+- **Whole system locally, no keys:** `dev` (API on :8787: mock DB + seed + simulator + dev login) and `dashboard` (http://localhost:5173). Sign in at `/admin/login` (`admin@clearsky.local`), `/baler/login` (`b01@clearsky.local`), `/buyer/login` (`by01@clearsky.local`), password `clearsky-dev` (`DEV_PASSWORD`). Dev shortcut URLs still work: `/admin?as=officer.Sangrur&sim=1`, `/baler?as=operator.B01`, `/buyer?as=buyer.BY03`; `/register` (new applicant). Old `/officer…` and `/operator` links redirect.
 - `install` · `lint` · `format` · `test` · `cov` · `e2e` · `validate` · `build` (layer + sam build) · `check-aws`
 - `chat`: farmer agent in the terminal (rules bot, or the LLM configured in `.env`). `book-all`: matcher dry run. `gen-seed`. `seed` (deployed tables). `firms` (needs MAP_KEY or CSVs).
 - `deploy` refuses without `CONFIRM=yes` / `-Confirm yes` (team approval).
@@ -98,6 +98,8 @@ Full design: `IMPLEMENTATION.md`. Build order: `PLAN.md`. Phase logs and deviati
 | 2026-10-09 | The farmer's cleared message with a PM2.5 figure is a **new** template `field_cleared_impact`, used only when a PM2.5 factor is configured; `field_cleared` is unchanged. | The issue proposed adding a parameter to `field_cleared`; a separate template keeps the existing one valid | `channels/templates.py` |
 | 2026-10-09 | `/impact` is a lazy route. | It now draws a chart; keeps the chart library out of the main bundle | `dashboard/src/App.tsx` |
 
+| 2026-10-09 | **Separate sign-in per role**: `/admin/login`, `/baler/login`, `/buyer/login`, each email + password. An account works only on its own page (another role's account gets "Wrong email or password" and is signed out). `/login` offers only baler and buyer; the admin address is linked nowhere. The all-in-one role picker is gone. Local dev credentials: `admin@clearsky.local`, `<baler id>@clearsky.local`, `<buyer id>@clearsky.local`, or the email used at registration, all with `DEV_PASSWORD` (default `clearsky-dev`). | User request: roles must not see each other | `dashboard/src/pages/Login.tsx`, `auth/AuthProvider.tsx` (`signIn`, `loginFor`), `handlers/api.py` (`_dev_credentials`) |
+
 ## 5. Open questions (ask the team; don't guess)
 
 How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-in reply template).
@@ -124,6 +126,8 @@ How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-
 | P4 | Video, blog, testing |
 
 ## 7. Changelog (newest first)
+
+- 2026-10-09 · Claude Code · Separate sign-in page and credentials per role (`/admin/login`, `/baler/login`, `/buyer/login`); role picker removed; signed-out visitors go to their app's own login; dev registration asks for email + password; backend dev login checks email + `DEV_PASSWORD` against one role. 223 backend tests, 25 Vitest, 13 Playwright pass · `dashboard/src/{pages/Login.tsx,App.tsx,auth/*,pages/register/Register.tsx}`, `dashboard/e2e/*`, `backend/src/clearsky/{handlers/api.py,config.py}`, `backend/tests/test_api.py`, docs
 
 - 2026-10-09 · Claude Code · Python unblocked: ran everything for issues #1, #2, #3, #5. 222 backend tests, mypy, 24 Vitest, 12 Playwright all pass. Fixed: a malformed `EMISSION_FACTORS` entry is now ignored instead of crashing settings; one impact test used the wrong history window · `backend/src/clearsky/{config.py,domain/impact.py}`, `backend/tests/test_impact.py`, `PROGRESS.md`
 

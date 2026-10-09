@@ -25,7 +25,8 @@ Three role apps, each with its own base path, layout, navigation and lazy-loaded
 | | `/pending` | Waiting room: under review / rejected with reason + resubmit; moves to the role app by itself on approval |
 
 **Routing rules** (`src/App.tsx`, `src/auth/RequireRole.tsx`, `homeFor` in `src/auth/AuthProvider.tsx`):
-- Signed out → `/login`, then back to the page that was asked for.
+- **Each role signs in at its own address** with email + password: `/admin/login`, `/baler/login`, `/buyer/login`. An account only works on its own page. `/login` offers baler and buyer only; the admin address is not linked from anywhere.
+- Signed out → that app's login page, then back to the page that was asked for.
 - Signed in on another role's URL → your own home, with a notice ("That page is for buyers.").
 - Signed in but not approved yet (`pending`) → `/pending`; such a user can open only `/register` and `/pending`.
 - Each app has its own 404 inside its layout.
@@ -46,7 +47,7 @@ npm install
 npm run dev                                         # http://localhost:5173
 ```
 
-Sign in with the role picker. Shortcut URLs (dev only): `/admin?as=officer.Sangrur&sim=1`, `/baler?as=operator.B01`, `/buyer?as=buyer.BY03`.
+Sign in at `/admin/login` (`admin@clearsky.local`), `/baler/login` (`b01@clearsky.local` … `b10@…`) or `/buyer/login` (`by01@clearsky.local` … `by03@…`); the local password is `clearsky-dev` (`DEV_PASSWORD`). Shortcut URLs (dev only): `/admin?as=officer.Sangrur&sim=1`, `/baler?as=operator.B01`, `/buyer?as=buyer.BY03`.
 
 ## Environment variables (`dashboard/.env.local`)
 

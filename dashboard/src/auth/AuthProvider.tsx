@@ -10,6 +10,11 @@ interface AuthState {
   loading: boolean;
   signInDev: (role: Role, id: string) => Promise<Me>;
   signInCognito: (email: string, password: string) => Promise<Me>;
+  /**
+   * Email + password on ONE role's sign-in page. An account of another role is refused there with the
+   * same message as a wrong password, and is signed out again.
+   */
+  signIn: (role: AppRole, email: string, password: string) => Promise<Me>;
   /** Cognito self sign-up: creates the account and emails a 6-digit code. */
   signUp: (email: string, password: string) => Promise<void>;
   resendCode: (email: string) => Promise<void>;
@@ -96,6 +101,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadMe, queryClient],
   );
 
+  const signIn = useCallback(
+    async (role: AppRole, email: string, password: string) => {
+      const denied = new Error("Wrong email or password.");
+      let signedIn: Me | null;
+      if (env.authMode === "dev") {
+        // the local API checks the credentials against this role only
+        const res = await api<{ token: string }>("/api/dev/login", { method: "POST", body: { role, email, password } }).catch(() => {
+          throw denied;
+        });
+        setDevToken(res.token);
+        queryClient.clear();
+        signedIn = await loadMe();
+      } else {
+        signedIn = await signInCognito(email, password);
+      }
+      // a baler or buyer who registered but is not approved yet may sign in: they go to the waiting room
+      const allowed = signedIn && (signedIn.role === role || (signedIn.role === "pending" && role !== "officer"));
+      if (!signedIn || !allowed) {
+        if (env.authMode === "dev") setDevToken(null);
+        else await (await import("aws-amplify/auth")).signOut().catch(() => undefined);
+        queryClient.clear();
+        setMe(null);
+        throw denied;
+      }
+      return signedIn;
+    },
+    [loadMe, queryClient, signInCognito],
+  );
+
   const signUp = useCallback(async (email: string, password: string) => {
     await configureAmplify();
     const auth = await import("aws-amplify/auth");
@@ -144,8 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const value = useMemo(
-    () => ({ me, loading, signInDev, signInCognito, signUp, resendCode, confirmSignUp, activate, signOut: signOutAll }),
-    [me, loading, signInDev, signInCognito, signUp, resendCode, confirmSignUp, activate, signOutAll],
+    () => ({ me, loading, signInDev, signInCognito, signIn, signUp, resendCode, confirmSignUp, activate, signOut: signOutAll }),
+    [me, loading, signInDev, signInCognito, signIn, signUp, resendCode, confirmSignUp, activate, signOutAll],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -165,6 +199,11 @@ export const APPS: Record<AppRole, { home: string; label: string; plural: string
   operator: { home: "/baler", label: "Baler", plural: "balers" },
   buyer: { home: "/buyer", label: "Buyer", plural: "buyers" },
 };
+
+/** Each role signs in at its own address; no page lists the others. */
+export function loginFor(role: AppRole): string {
+  return `${APPS[role].home}/login`;
+}
 
 /** A user waiting for approval lives on /pending (and /register while filling the form). */
 export const PENDING_HOME = "/pending";

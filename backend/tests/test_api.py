@@ -58,6 +58,53 @@ def test_dev_login_and_accounts(api: None) -> None:
     assert call("POST", "/api/dev/login", {"role": "root"})[0] == 400
 
 
+def test_dev_credentials_are_checked_per_role(api: None) -> None:
+    """Each role signs in on its own page: an account only works for its own role."""
+
+    def login(role: str, email: str, password: str = "clearsky-dev") -> tuple[int, Any]:
+        return call("POST", "/api/dev/login", {"role": role, "email": email, "password": password})
+
+    status, body = login("officer", "admin@clearsky.local")
+    assert status == 200 and body["token"] == OFFICER and body["principal"]["role"] == "officer"
+    assert login("operator", "B01@clearsky.local")[1]["token"] == operator("B01")  # case-insensitive
+    assert login("buyer", "by01@clearsky.local")[1]["token"] == BUYER
+    # wrong password, wrong page, unknown account: all the same answer
+    for role, email, password in (
+        ("officer", "admin@clearsky.local", "nope"),
+        ("officer", "admin@clearsky.local", ""),
+        ("operator", "admin@clearsky.local", "clearsky-dev"),
+        ("buyer", "admin@clearsky.local", "clearsky-dev"),
+        ("officer", "b01@clearsky.local", "clearsky-dev"),
+        ("buyer", "b01@clearsky.local", "clearsky-dev"),
+        ("operator", "by01@clearsky.local", "clearsky-dev"),
+        ("operator", "b99@clearsky.local", "clearsky-dev"),
+        ("officer", "someone@example.test", "clearsky-dev"),
+        ("operator", "not-an-email", "clearsky-dev"),
+    ):
+        status, body = login(role, email, password)
+        assert status == 401 and body["error"]["message"] == "wrong email or password", (role, email)
+    # someone who registered with their own email: pending until approved, then their own baler
+    status, body = login("operator", "Asha.K@example.test")
+    assert status == 200 and body["token"] == "dev.pending.asha-k-example-test"
+    applicant = body["token"]
+    form = {
+        "role": "operator",
+        "name": "Asha Kaur",
+        "phone": "+919812300001",
+        "org_name": "Asha CHC",
+        "village_id": "V001",
+        "acres_per_day": 18,
+        "radius_km": 20,
+    }
+    app_id = call("POST", "/api/register", form, token=applicant)[1]["application"]["application_id"]
+    assert login("buyer", "asha.k@example.test")[0] == 401  # applied as a baler: not on the buyer page
+    assert login("operator", "asha.k@example.test")[1]["principal"]["role"] == "pending"
+    call("POST", f"/api/applications/{app_id}/approve", token=OFFICER)
+    assert login("operator", "asha.k@example.test")[1]["token"] == operator("B11")
+    assert login("operator", "b11@clearsky.local")[1]["token"] == operator("B11")
+    assert login("buyer", "asha.k@example.test")[0] == 401
+
+
 def test_officer_views(api: None) -> None:
     villages = call("GET", "/api/villages", token=OFFICER)[1]["villages"]
     assert len(villages) == 31

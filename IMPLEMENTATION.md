@@ -620,7 +620,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 - Basemap: OpenFreeMap "positron" (free OSM vector tiles, no key) unless `VITE_MAP_STYLE_URL` points at an Amazon Location style.
 - Extra screens for the officer as super admin: Fields, Bookings, Balers (7-day load), Buyers, Demo controls; and a docked **farmer simulator** (WhatsApp stand-in) in simulator mode.
 - **Three role apps** (issue #2): `src/apps/admin`, `src/apps/baler`, `src/apps/buyer`, each with its own layout, navigation, 404 and lazy route chunk (`lazy: () => import("./apps/<role>/routes")`). The buyer chunk loads no map; the baler and admin chunks load no charts. People see **Admin / Baler / Buyer**; code and Cognito keep `officer` / `operator` / `buyer`. `homeFor(role)` (`auth/AuthProvider.tsx`) is the single source of landing pages; `RequireRole` (`auth/RequireRole.tsx`) sends signed-out visitors to `/login` and back to the page they asked for, and sends a signed-in user on another role's URL to their own home with a notice. `/officer/*` and `/operator` redirect to the new paths.
-- Auth: `VITE_AUTH_MODE=dev` (role picker against the local dev server) or `cognito` (email + password, ID token as bearer).
+- Auth: one sign-in page per role (`/admin/login`, `/baler/login`, `/buyer/login`), always email + password. `VITE_AUTH_MODE=cognito`: Cognito, ID token as bearer; `dev`: the local dev server checks the email and `DEV_PASSWORD` for that role. Either way an account of another role is refused on the page and signed out again (`AuthProvider.signIn`). `/login` lists only baler and buyer.
 - Tests: Vitest component and route-guard tests; Playwright smoke tests run the full officer/farmer/operator loop, and `e2e/apps.spec.ts` checks that each role reaches every page of its app and is kept out of the others, against the local stack using the installed Chrome.
 
 ---
@@ -690,6 +690,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `AUTO_ACCEPT_DEMO` | `false` | `true` confirms bookings instantly (no baler step) |
 | `ALERT_COOLDOWN_MINUTES` | `30` | one alert per village per window |
 | `DEV_AUTH` | `false` | local dev server only; never in a shared stack |
+| `DEV_PASSWORD` | `clearsky-dev` | shared password of the local dev accounts (`admin@clearsky.local`, `b01@clearsky.local`, `by01@clearsky.local`, …); only read when `DEV_AUTH` is on |
 | `USER_POOL_ID` | from SAM (ApiFunction) | Cognito pool for approving registrations; unset = no Cognito calls (local dev) |
 | `CORS_ORIGINS` | `*` | set to the dashboard origin when deployed |
 | `ROUTE_CALCULATOR_NAME` | unset | Amazon Location route calculator; unset = straight lines |

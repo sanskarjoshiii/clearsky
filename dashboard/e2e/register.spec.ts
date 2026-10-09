@@ -5,11 +5,15 @@ test("a new baler registers, the admin approves, and the baler reaches their own
   const tag = Date.now().toString().slice(-6);
   const org = `E2E Hiring Centre ${tag}`;
 
-  await page.goto("/login");
+  const email = `asha${tag}@example.test`;
+
+  await page.goto("/baler/login");
   await page.getByRole("link", { name: "Create an account" }).click();
-  await expect(page).toHaveURL(/\/register$/);
-  await page.getByRole("radio", { name: /Baler operator/ }).click();
-  await page.getByRole("button", { name: "Continue as a new applicant" }).click();
+  await expect(page).toHaveURL(/\/register\?role=operator$/);
+  await expect(page.getByRole("radio", { name: /Baler operator/ })).toBeChecked(); // came from the baler page
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("clearsky-dev");
+  await page.getByRole("button", { name: "Create account" }).click();
 
   await page.getByLabel(/Your name/).fill("Asha Kaur");
   await page.getByLabel(/Mobile number/).fill(`+919812${tag}`);
@@ -45,6 +49,22 @@ test("a new baler registers, the admin approves, and the baler reaches their own
   await expect(page).toHaveURL(/\/baler$/, { timeout: 20_000 });
   await expect(page.getByText("Asha Kaur")).toBeVisible();
   await expect(page.getByText("Today's stops")).toBeVisible();
+
+  // later: the same email signs in on the baler page, and only there
+  await page.getByRole("link", { name: /Profile/ }).first().click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/baler\/login$/);
+  await page.goto("/buyer/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("clearsky-dev");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByText("Wrong email or password.")).toBeVisible();
+  await page.goto("/baler/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("clearsky-dev");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/baler$/);
+  await expect(page.getByText("Asha Kaur")).toBeVisible();
 });
 
 test("a rejected applicant sees the reason and can edit and resubmit", async ({ page, request }) => {
