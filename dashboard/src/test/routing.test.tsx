@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppRole, Me, Role } from "../api/types";
-import { appOf, homeFor, landingFor } from "../auth/AuthProvider";
+import { appOf, homeFor, landingFor, loginFor } from "../auth/AuthProvider";
 import { RequireRole } from "../auth/RequireRole";
 import { ToastProvider } from "../components/ui";
 
@@ -24,9 +24,13 @@ const user = (role: Role): Me => ({
   config: { wa_mode: "simulator", demo_mode: true, llm_provider: "rules", today: "2026-10-20" },
 });
 
-function LoginProbe() {
+function LoginProbe({ which }: { which: string }) {
   const state = useLocation().state as { from?: string } | null;
-  return <p>login page, from {state?.from ?? "nowhere"}</p>;
+  return (
+    <p>
+      {which} login page, from {state?.from ?? "nowhere"}
+    </p>
+  );
 }
 
 function open(path: string, me: Me | null) {
@@ -37,7 +41,9 @@ function open(path: string, me: Me | null) {
   });
   const router = createMemoryRouter(
     [
-      { path: "/login", element: <LoginProbe /> },
+      { path: "/admin/login", element: <LoginProbe which="admin" /> },
+      { path: "/baler/login", element: <LoginProbe which="baler" /> },
+      { path: "/buyer/login", element: <LoginProbe which="buyer" /> },
       { path: "/pending", element: <p>pending page</p> },
       app("officer", "/admin", "admin page"),
       app("operator", "/baler", "baler page"),
@@ -57,9 +63,18 @@ describe("RequireRole", () => {
     auth.loading = false;
   });
 
-  it("sends a signed-out visitor to login and remembers the page they asked for", async () => {
+  it("sends a signed-out visitor to that app's own login and remembers the page they asked for", async () => {
     open("/baler/requests?x=1", null);
-    expect(await screen.findByText("login page, from /baler/requests?x=1")).toBeInTheDocument();
+    expect(await screen.findByText("baler login page, from /baler/requests?x=1")).toBeInTheDocument();
+  });
+
+  it("gives each role a separate login address", async () => {
+    open("/admin/fields", null);
+    expect(await screen.findByText("admin login page, from /admin/fields")).toBeInTheDocument();
+    cleanup();
+    open("/buyer", null);
+    expect(await screen.findByText("buyer login page, from /buyer")).toBeInTheDocument();
+    expect([loginFor("officer"), loginFor("operator"), loginFor("buyer")]).toEqual(["/admin/login", "/baler/login", "/buyer/login"]);
   });
 
   it("lets the right role in", async () => {

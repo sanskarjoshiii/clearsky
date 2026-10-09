@@ -73,9 +73,10 @@ test("buyer reaches every buyer page and is kept out of the other apps", async (
 
 test("a signed-out deep link returns to the requested page after login", async ({ page }) => {
   await page.goto("/baler/schedule");
-  await expect(page).toHaveURL(/\/login$/);
-  const row = page.locator("div", { hasText: "Today's stops, route" }).filter({ has: page.getByRole("button", { name: "Enter" }) }).last();
-  await row.getByRole("button", { name: "Enter" }).click();
+  await expect(page).toHaveURL(/\/baler\/login$/); // the baler app's own sign-in page
+  await page.getByLabel("Email").fill("b01@clearsky.local");
+  await page.getByLabel("Password").fill("clearsky-dev");
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/baler\/schedule$/);
   await expect(page.getByRole("heading", { name: /Next 14 days/ })).toBeVisible();
 });
@@ -87,4 +88,51 @@ test("old URLs redirect to the new apps", async ({ page }) => {
   await page.goto("/operator?as=operator.B01");
   await expect(page).toHaveURL(/\/baler\?as=operator\.B01$/);
   await expect(page.getByText("Today's stops")).toBeVisible();
+});
+
+test("each role has its own sign-in page and accounts don't work on another role's page", async ({ page }) => {
+  const signIn = async (path: string, email: string, password = "clearsky-dev") => {
+    await page.goto(path);
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+  };
+
+  // signed out, each app sends you to its own login; no page lists the other roles
+  for (const [app, heading] of [
+    ["/admin", "Admin sign in"],
+    ["/baler", /Baler sign in/],
+    ["/buyer", "Buyer sign in"],
+  ] as const) {
+    await page.goto(app);
+    await expect(page).toHaveURL(new RegExp(`${app}/login$`));
+    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enter" })).toHaveCount(0); // the old all-in-one picker is gone
+  }
+  await page.goto("/login");
+  await expect(page.getByText(/admin/i)).toHaveCount(0); // the public entrance never mentions the admin
+  await expect(page.getByRole("link", { name: /I am a baler/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /I am a buyer/ })).toBeVisible();
+  await page.goto("/admin/login");
+  await expect(page.getByRole("link", { name: "Create an account" })).toHaveCount(0); // nobody registers as admin
+
+  // an account is refused on another role's page, with the same message as a wrong password
+  await signIn("/baler/login", "admin@clearsky.local");
+  await expect(page.getByText("Wrong email or password.")).toBeVisible();
+  await expect(page).toHaveURL(/\/baler\/login$/);
+  await signIn("/admin/login", "b01@clearsky.local");
+  await expect(page.getByText("Wrong email or password.")).toBeVisible();
+  await signIn("/buyer/login", "b01@clearsky.local");
+  await expect(page.getByText("Wrong email or password.")).toBeVisible();
+  await signIn("/admin/login", "admin@clearsky.local", "wrong-password");
+  await expect(page.getByText("Wrong email or password.")).toBeVisible();
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/admin\/login$/); // still signed out after the refused attempts
+
+  // the right account on the right page
+  await signIn("/buyer/login", "by01@clearsky.local");
+  await expect(page).toHaveURL(/\/buyer$/);
+  await expect(page.getByText("Incoming straw by day")).toBeVisible();
+  await signIn("/admin/login", "admin@clearsky.local");
+  await expect(page.getByRole("heading", { name: "Burn Risk Radar" })).toBeVisible();
 });

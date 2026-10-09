@@ -185,6 +185,59 @@ def get_me() -> dict[str, Any]:
 class DevLogin(BaseModel):
     role: str
     id: str | None = None
+    email: str | None = PField(default=None, max_length=200)
+    password: str | None = PField(default=None, max_length=200)
+
+
+DEV_EMAIL_DOMAIN = "clearsky.local"
+
+
+def _dev_ident(email: str) -> str:
+    """A stable id for a self-registered dev user, from their email (letters, digits, dashes)."""
+    return "".join(c if c.isalnum() else "-" for c in email.strip().lower()).strip("-")
+
+
+def _dev_credentials(role: str, email: str, password: str) -> tuple[str, str]:
+    """Local stand-in for Cognito: email + the shared dev password, checked against ONE role.
+
+    Each role has its own sign-in page, and an account only works on its own page: an admin email is
+    refused on the baler page and the other way round. Returns (role, id) for the dev token.
+      admin@clearsky.local           → officer
+      <baler id>@clearsky.local      → that baler (b01@…, also balers approved from an application)
+      <buyer id>@clearsky.local      → that buyer (by01@…)
+      any other email, baler/buyer   → whoever registered with it: their approved baler/buyer, or a
+                                       `pending` applicant until the admin approves
+    """
+    import hmac
+
+    denied = ApiError(401, "unauthorized", "wrong email or password")
+    email = email.strip().lower()
+    if not hmac.compare_digest(password, get_settings().dev_password) or "@" not in email:
+        raise denied
+    local, _, domain = email.partition("@")
+    if role == "officer":
+        if email != f"admin@{DEV_EMAIL_DOMAIN}":
+            raise denied
+        return "officer", get_settings().district
+    if role not in ("operator", "buyer"):
+        raise denied
+    if domain == DEV_EMAIL_DOMAIN:
+        if role == "operator" and BalersRepo().get(local.upper()) is not None:
+            return "operator", local.upper()
+        if role == "buyer" and BuyersRepo().get(local.upper()) is not None:
+            return "buyer", local.upper()
+        raise denied
+    ident = _dev_ident(email)
+    if not ident:
+        raise denied
+    latest = registration.latest(f"dev-{auth.PENDING}-{ident}")
+    if latest is not None and latest.status == ApplicationStatus.APPROVED and latest.entity_id:
+        if latest.role != role:
+            raise denied  # a buyer's account does not open the baler app
+        return role, latest.entity_id
+    if latest is not None and latest.role != role:
+        raise denied
+    return auth.PENDING, ident  # registered (or about to): the waiting room until approved
 
 
 @app.post("/api/dev/login")
@@ -194,6 +247,11 @@ def dev_login() -> dict[str, Any]:
     req = body(DevLogin)
     if req.role not in (*auth.ROLES, auth.PENDING):
         raise ApiError(400, "bad_request", "unknown role")
+    if req.email is not None:
+        role, ident = _dev_credentials(req.role, req.email, req.password or "")
+        token = auth.dev_token(role, ident)
+        p = auth.from_dev_header(f"Bearer {token}")
+        return {"token": token, "principal": p.as_dict() if p else None}
     if req.role == auth.PENDING and not (req.id and req.id.replace("-", "").isalnum()):
         raise ApiError(400, "bad_request", "a pending dev login needs an id (letters and digits)")
     token = auth.dev_token(req.role, req.id)

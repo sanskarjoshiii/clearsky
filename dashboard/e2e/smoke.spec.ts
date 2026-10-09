@@ -10,9 +10,10 @@ async function bookViaWhatsApp(request: APIRequestContext, phone: string, text: 
 }
 
 test("officer signs in, sees the radar map and alerts a village", async ({ page }) => {
-  await page.goto("/login");
-  const officerRow = page.locator("div", { hasText: "District officer" }).filter({ has: page.getByRole("button", { name: "Enter" }) }).last();
-  await officerRow.getByRole("button", { name: "Enter" }).click();
+  await page.goto("/admin/login");
+  await page.getByLabel("Email").fill("admin@clearsky.local");
+  await page.getByLabel("Password").fill("clearsky-dev");
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Burn Risk Radar" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Map" }).locator("canvas")).toBeVisible();
   await expect(page.getByText("Villages by risk")).toBeVisible();
