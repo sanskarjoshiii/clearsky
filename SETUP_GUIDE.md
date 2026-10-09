@@ -49,11 +49,13 @@ git pull
 .\make.ps1 dashboard            # opens on http://localhost:5173
 ```
 
-1. Open <http://localhost:5173>. Choose **District officer → Enter**.
+1. Open <http://localhost:5173>. Choose **Admin → Enter** (the district officer).
 2. Click the round **violet chat button** at the bottom-left of the rail. The **Farmer on WhatsApp** panel opens.
 3. Tap the **Hinglish** sample, or type: `Mera 8 acre dhaan 24 tareekh ko katega, Bhawanigarh. Naam Gurpreet.` The agent books a baler and replies.
-4. In a second browser window go to <http://localhost:5173/operator?as=operator.B01> and press **Next stops**. Your farmer's field is a stop; press **Done · हो गया** and the farmer panel gets "khet saaf ho gaya ✅".
+4. In a second browser window go to <http://localhost:5173/baler?as=operator.B01> and press **Next stops**. Your farmer's field is a stop; press **Done · हो गया** and the farmer panel gets "khet saaf ho gaya ✅".
 5. Try **Buyer** (`/buyer?as=buyer.BY03`), the **Demo controls** page, and **Impact** (`/impact`).
+
+Each role has its own app: **Admin** at `/admin`, **Baler** at `/baler` (phone-first, with Schedule / History / Profile tabs) and **Buyer** at `/buyer` (Overview / Deliveries / Demand / Profile). Old `/officer` and `/operator` links redirect.
 
 Automated checks: `.\make.ps1 test` (backend, 177 tests) and `.\make.ps1 e2e` (dashboard; uses your installed Google Chrome).
 

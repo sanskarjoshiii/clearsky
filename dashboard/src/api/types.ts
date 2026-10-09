@@ -175,6 +175,37 @@ export interface Route {
   route: [number, number][];
 }
 
+export interface ScheduleDay {
+  date: string;
+  stops: number;
+  done: number;
+  booked_acres: number;
+  capacity_acres: number;
+  villages: string[];
+}
+
+export interface BalerHistory {
+  from: string;
+  to: string;
+  rows: {
+    booking_id: string;
+    date: string;
+    done_at: string | null;
+    farmer_name: string | null;
+    village_name: string;
+    acres: number;
+    est_tonnes: number;
+  }[];
+  totals: { fields: number; acres: number; tonnes: number };
+}
+
+export interface DemandChange {
+  at: string;
+  demand_tonnes: number;
+  price_per_tonne: number;
+  max_radius_km: number;
+}
+
 export interface Stats {
   farmers: number;
   fields: number;

@@ -125,6 +125,33 @@ def test_operator_update(api: None) -> None:
     )
     assert status == 200 and body["baler"]["acres_per_day"] == 25 and body["baler"]["active"] is False
     assert call("PUT", "/api/operator/me", {"acres_per_day": 500}, token=operator("B01"))[0] == 400
+    profile = call(
+        "PUT", "/api/operator/me", {"radius_km": 30, "operator_phone": "+919800000000"}, token=operator("B01")
+    )[1]["baler"]
+    assert profile["radius_km"] == 30 and profile["operator_phone"] == "+919800000000"
+    assert profile["acres_per_day"] == 25  # untouched fields keep their value
+    assert call("PUT", "/api/operator/me", {"operator_phone": "98000"}, token=operator("B01"))[0] == 400
+    assert call("PUT", "/api/operator/me", {"radius_km": 500}, token=operator("B01"))[0] == 400
+
+
+def test_operator_schedule_and_history(api: None) -> None:
+    bk = confirmed_booking()
+    token = operator(bk.baler_id)
+    days = call("GET", "/api/operator/me/schedule", token=token, query={"days": "14"})[1]["days"]
+    assert len(days) == 14 and days[0]["date"] == "2026-10-20"
+    day = next(d for d in days if d["date"] == bk.date.isoformat())
+    assert day["stops"] >= 1 and day["booked_acres"] >= bk.acres and day["villages"]
+    assert call("GET", "/api/operator/me/schedule", token=token, query={"days": "x"})[0] == 400
+
+    window = {"from": "2026-10-01", "to": bk.date.isoformat()}
+    assert call("GET", "/api/operator/me/history", token=token, query=window)[1]["totals"]["fields"] == 0
+    call("POST", f"/api/bookings/{bk.booking_id}/done", token=token)
+    history = call("GET", "/api/operator/me/history", token=token, query=window)[1]
+    assert [r["booking_id"] for r in history["rows"]] == [bk.booking_id]
+    assert history["totals"] == {"fields": 1, "acres": bk.acres, "tonnes": bk.est_tonnes}
+    assert "farmer_phone" not in history["rows"][0]
+    assert call("GET", "/api/operator/me/history", token=token, query={"from": "nope"})[0] == 400
+    assert call("GET", "/api/operator/me/schedule", token=BUYER)[0] == 403
 
 
 def test_buyer_supply_and_demand(api: None) -> None:
@@ -139,6 +166,9 @@ def test_buyer_supply_and_demand(api: None) -> None:
         token=BUYER,
     )
     assert status == 200 and upd["buyer"]["price_per_tonne"] == 1750
+    changes = call("GET", "/api/buyers/me/demand/history", token=BUYER)[1]["changes"]
+    assert len(changes) == 1 and changes[0]["price_per_tonne"] == 1750 and changes[0]["at"]
+    assert call("GET", "/api/buyers/me/demand/history", token="dev.buyer.BY02")[1]["changes"] == []
     if reserved > 0:
         bad = call(
             "PUT",

@@ -15,6 +15,7 @@ import contextlib
 import json
 import os
 import sys
+import threading
 import time
 import uuid
 from base64 import b64decode
@@ -107,6 +108,10 @@ def main() -> int:
     from clearsky.handlers import api, health, webhook
 
     s = get_settings()
+    # A Lambda instance handles one event at a time, and the Powertools resolver keeps the current
+    # event on the shared `app` object. Serialise the handlers so parallel browser requests can't
+    # read each other's token or query string.
+    one_at_a_time = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -116,12 +121,13 @@ def main() -> int:
             body = self.rfile.read(length) if length else b""
             event = to_event(self.command, self.path, dict(self.headers.items()), body)
             path = event["rawPath"]
-            if path.startswith("/webhook/whatsapp"):
-                resp = webhook.handler(event, _Ctx())
-            elif path == "/health":
-                resp = health.handler(event, _Ctx())
-            else:
-                resp = api.handler(event, _Ctx())
+            with one_at_a_time:
+                if path.startswith("/webhook/whatsapp"):
+                    resp = webhook.handler(event, _Ctx())
+                elif path == "/health":
+                    resp = health.handler(event, _Ctx())
+                else:
+                    resp = api.handler(event, _Ctx())
             payload = resp.get("body") or ""
             data = b64decode(payload) if resp.get("isBase64Encoded") else payload.encode("utf-8")
             self.send_response(int(resp.get("statusCode", 200)))

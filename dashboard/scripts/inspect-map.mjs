@@ -1,8 +1,8 @@
 // Dev diagnostic: open a page in system Chrome, wait for the map, print its state, save a screenshot.
-// Usage: node scripts/inspect-map.mjs "/officer?as=officer.Sangrur" out.png
+// Usage: node scripts/inspect-map.mjs "/admin?as=officer.Sangrur" out.png
 import { chromium } from "@playwright/test";
 
-const [path = "/officer?as=officer.Sangrur", out = "map.png"] = process.argv.slice(2);
+const [path = "/admin?as=officer.Sangrur", out = "map.png"] = process.argv.slice(2);
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const logs = [];

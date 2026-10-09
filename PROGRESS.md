@@ -15,7 +15,9 @@ Legend: ✅ done · 🟡 code complete and tested; a Definition-of-Done item is 
 | 8 Satellite | ⬜ | | Stretch; not started (cut line 1 in PLAN.md). |
 | 9 Demo/Submit | 🟡 | 2026-10-09 | Demo mode API + UI + `demo_clock.py` + runbook done. Not done: 3× runbook on the deployed stack, video, blog, submission (team). |
 
-Test suite: **177 backend tests** (`make test`, coverage 91%), **8 Vitest + 3 Playwright** dashboard tests (`make e2e`); ruff, mypy, tsc clean; `sam validate --lint` and clean `sam build` pass.
+Post-phase work (GitHub issues, see the log at the end): #2 role apps + routing, implemented locally (deploy pending like every phase).
+
+Test suite on this branch (2026-10-09): **178 backend tests** passed, ruff and mypy clean; **14 Vitest** passed, `tsc` and `npm run build` clean. Playwright was run on the complete stack (top branch), not on this branch alone.
 
 ---
 
@@ -96,3 +98,11 @@ Test suite: **177 backend tests** (`make test`, coverage 91%), **8 Vitest + 3 Pl
 ## Phase 9 log: Demo mode + docs (partly, 2026-10-09)
 - **Built:** `/api/demo/clock`, `/api/demo/simulate` (`harvest_wave`, `run_risk`, `run_reminders`, `reset`), demo controls page, `scripts/demo_clock.py`, `docs/demo_runbook.md`.
 - **Not done (team):** run the runbook 3× on the deployed stack, record the video, write/publish the blog, submission checklist.
+
+## Issue log (after the phases)
+
+### Issue #2: separate admin, baler and buyer apps (built 2026-10-09)
+- **Built:** `dashboard/src/apps/{admin,baler,buyer}` (layout, routes, pages; old pages moved with `git mv`), one router with three lazy route trees, `auth/RequireRole.tsx`, `homeFor` / `appOf` / `landingFor` in `auth/AuthProvider.tsx`, per-app 404, redirects for `/officer/*` and `/operator`. Baler app: bottom tabs, Hindi labels, 44 px targets, Today (`?date=` deep link) / Schedule / History / Profile. Buyer app: Overview / Deliveries (CSV export) / Demand (change history) / Profile. Backend: `GET /api/operator/me/schedule`, `GET /api/operator/me/history`, `GET /api/buyers/me/demand/history`, `PUT /api/operator/me` accepts `radius_km` and `operator_phone`.
+- **Verified:** `npm run typecheck`, Vitest (route guards), `npm run build` (buyer chunk loads no map; baler and admin chunks load no charts), Playwright `e2e/apps.spec.ts` (one test per role + deep-link return + old-URL redirects), backend API tests.
+- **Deviations:** shared modules were left in `src/components`, `src/api`, `src/lib`, `src/auth` instead of a new `src/shared/`; `/baler/requests` arrives with issue #3; demand history is stored in the `Settings` table.
+- **Fixes found on the way:** Vitest was collecting Playwright specs (now `include: src/**`); the dev server could mix up parallel requests (now serialised); React was bundled into the charts chunk (now prioritised chunk groups).

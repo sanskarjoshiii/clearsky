@@ -102,12 +102,15 @@ Farmer replies:
 ### 2.4 Baler operator (dashboard only)
 
 ```
-Operator signs in on the dashboard (Cognito group: operator, custom:baler_id) → /operator
+Operator signs in on the dashboard (Cognito group: operator, custom:baler_id) → /baler
   GET  /api/operator/me                 → baler profile (acres_per_day, radius_km, active, chc_name)
-  PUT  /api/operator/me                 → update acres_per_day / active (affects new bookings only)
+  PUT  /api/operator/me                 → update acres_per_day / radius_km / operator_phone / active
+                                          (affects new bookings only)
   GET  /api/operator/me/route?date=     → ordered stops (farmer name + phone for the call button,
                                           village, acres) + Amazon Location route polyline
   GET  /api/operator/me/alerts          → open village alerts within this baler's radius
+  GET  /api/operator/me/schedule?days=  → stops + booked acres per day (default 14 days)
+  GET  /api/operator/me/history?from&to → cleared fields (DONE bookings) + totals
   POST /api/bookings/{id}/done          → booking.status=DONE, field.status=CLEARED,
                                           buyer.received_tonnes += est_tonnes,
                                           farmer gets WhatsApp "Khet saaf ho gaya ✅"
@@ -121,6 +124,7 @@ Operators never receive WhatsApp messages.
 Buyer logs in (Cognito group: buyer, custom:buyer_id)
  → GET /api/buyers/me/supply → booked tonnes by date, delivered, remaining demand
  → PUT /api/buyers/me/demand {demand_tonnes, price_per_tonne, max_radius_km}
+ → GET /api/buyers/me/demand/history → last 20 saved edits (kept in the Settings table)
 Matcher uses current demand/price for new bookings only (existing bookings keep their price).
 ```
 
@@ -133,7 +137,7 @@ sequenceDiagram
   participant API as λ api
   participant D as DynamoDB
   participant WA as WhatsApp
-  O->>UI: open /officer
+  O->>UI: open /admin
   UI->>API: GET /api/fields?district=Sangrur
   UI->>API: GET /api/villages/risk
   UI->>API: GET /api/layers/firms
@@ -462,9 +466,12 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | GET | `/api/buyers/me/supply` | buyer | Forecast + deliveries |
 | PUT | `/api/buyers/me/demand` | buyer | Update demand/price |
 | GET | `/api/operator/me` | operator | Own baler profile |
-| PUT | `/api/operator/me` `{acres_per_day?, active?}` | operator | Update capacity/availability |
+| PUT | `/api/operator/me` `{acres_per_day?, radius_km?, operator_phone?, active?}` | operator | Update capacity, radius, contact number, availability |
 | GET | `/api/operator/me/route?date=` | operator | Own stops + route geometry |
 | GET | `/api/operator/me/alerts` | operator | Open village alerts within radius |
+| GET | `/api/operator/me/schedule?days=` | operator | Stops, done count, booked/capacity acres and villages per day (1–31 days, default 14) |
+| GET | `/api/operator/me/history?from=&to=` | operator | DONE bookings (no phone numbers) + totals; default season start → today |
+| GET | `/api/buyers/me/demand/history` | buyer | Saved demand edits, newest first |
 | POST | `/api/bookings/{id}/done` | operator (own booking only) | Mark done |
 | GET/PUT | `/api/demo/clock` | officer (demo mode only) | Get/set simulated today |
 | POST | `/api/demo/simulate` `{action}` | officer (demo mode) | e.g. `harvest_wave`, `run_risk`, `reset` |
@@ -490,9 +497,9 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | Route | Role | Content |
 |---|---|---|
 | `/login` | all | Cognito hosted UI or Amplify `Authenticator` |
-| `/officer` | officer | KPI bar (registered/booked/cleared acres, RED count) · map (field pins, FIRMS heatmap toggle, harvest grid toggle, village risk circles) · right panel: villages sorted by risk, "Alert village" button, field detail drawer with reasons |
-| `/buyer` | buyer | Demand form · stacked bar of incoming tonnes per day · deliveries table |
-| `/operator` | operator | Simple and mobile-first: date switcher, ordered stop list (farmer, village, acres, call button), map with route, big "Done" buttons, "Available today" toggle + acres/day, banner for nearby village alerts |
+| `/admin` (was `/officer`) | officer | KPI bar (registered/booked/cleared acres, RED count) · map (field pins, FIRMS heatmap toggle, harvest grid toggle, village risk circles) · right panel: villages sorted by risk, "Alert village" button, field detail drawer with reasons |
+| `/buyer`, `/buyer/deliveries`, `/buyer/demand`, `/buyer/profile` | buyer | Overview (KPIs + stacked bar of incoming tonnes per day) · deliveries table + CSV export · demand form + change history · profile |
+| `/baler` (was `/operator`), `/baler/schedule`, `/baler/history`, `/baler/profile` | operator | Simple and mobile-first: date switcher, ordered stop list (farmer, village, acres, call button), map with route, big "Done" buttons, "Available today" toggle + acres/day, banner for nearby village alerts |
 | `/impact` | public | Big animated counters, for the video |
 
 **Design:** green / amber / red risk palette, plus Hindi labels on key actions. Make sure it works on a phone screen.
@@ -501,8 +508,9 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 - Stack: Vite 8, React 19, TypeScript (strict), Tailwind v4 (`@theme` tokens in `src/styles.css`), React Router 8, TanStack Query (10 s polling), **MapLibre GL 6** (deck.gl dropped: MapLibre circle/heatmap/line layers cover the radar and route; the TripsLayer animation is a video-only extra), Recharts 3, Amplify Auth v6.
 - Basemap: OpenFreeMap "positron" (free OSM vector tiles, no key) unless `VITE_MAP_STYLE_URL` points at an Amazon Location style.
 - Extra screens for the officer as super admin: Fields, Bookings, Balers (7-day load), Buyers, Demo controls; and a docked **farmer simulator** (WhatsApp stand-in) in simulator mode.
+- **Three role apps** (issue #2): `src/apps/admin`, `src/apps/baler`, `src/apps/buyer`, each with its own layout, navigation, 404 and lazy route chunk (`lazy: () => import("./apps/<role>/routes")`). The buyer chunk loads no map; the baler and admin chunks load no charts. People see **Admin / Baler / Buyer**; code and Cognito keep `officer` / `operator` / `buyer`. `homeFor(role)` (`auth/AuthProvider.tsx`) is the single source of landing pages; `RequireRole` (`auth/RequireRole.tsx`) sends signed-out visitors to `/login` and back to the page they asked for, and sends a signed-in user on another role's URL to their own home with a notice. `/officer/*` and `/operator` redirect to the new paths.
 - Auth: `VITE_AUTH_MODE=dev` (role picker against the local dev server) or `cognito` (email + password, ID token as bearer).
-- Tests: Vitest component tests; Playwright smoke tests run the full officer/farmer/operator loop against the local stack using the installed Chrome.
+- Tests: Vitest component and route-guard tests; Playwright smoke tests run the full officer/farmer/operator loop, and `e2e/apps.spec.ts` checks that each role reaches every page of its app and is kept out of the others, against the local stack using the installed Chrome.
 
 ---
 

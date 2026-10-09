@@ -1,11 +1,12 @@
-import { BellRing, Check, ChevronLeft, ChevronRight, Minus, Phone, Plus, Route as RouteIcon } from "lucide-react";
+import { BellRing, Check, ChevronLeft, ChevronRight, Phone } from "lucide-react";
 import { useState } from "react";
-import { useMarkDone, useOperatorAlerts, useOperatorMe, useRoute, useStats, useUpdateOperator } from "../api/hooks";
-import type { Stop } from "../api/types";
-import { MapView } from "../components/MapView";
-import { TopBar } from "../components/Shell";
-import { Button, Card, ConfirmDialog, cx, Empty, ErrorNote, Skeleton, Toggle, useToast } from "../components/ui";
-import { addDays, fmtDayLong, fmtNum } from "../lib/format";
+import { useSearchParams } from "react-router";
+import { useMarkDone, useOperatorAlerts, useOperatorMe, useRoute, useStats, useUpdateOperator } from "../../../api/hooks";
+import type { Stop } from "../../../api/types";
+import { MapView } from "../../../components/MapView";
+import { Button, Card, ConfirmDialog, cx, Empty, ErrorNote, Skeleton, Toggle, useToast } from "../../../components/ui";
+import { addDays, fmtDayLong, fmtNum } from "../../../lib/format";
+import { BalerPage } from "../Layout";
 
 function StopCard({ stop, onDone }: { stop: Stop; onDone: () => void }) {
   const done = stop.status === "DONE";
@@ -45,10 +46,17 @@ function StopCard({ stop, onDone }: { stop: Stop; onDone: () => void }) {
   );
 }
 
-/** Baler operator dashboard: deliberately simple and phone-first (PLAN.md Phase 7). */
-export function OperatorPage() {
+// 44 px touch target for the day stepper (design-system rule 7)
+const STEP = "flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-ink-2 hover:bg-hover";
+
+/** Baler home: the day's stops with Call and Done, deliberately simple and phone-first. */
+export function Today() {
   const stats = useStats(false);
-  const [date, setDate] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  // the Schedule tab links here with ?date=YYYY-MM-DD
+  const picked = params.get("date");
+  const date = picked && /^\d{4}-\d{2}-\d{2}$/.test(picked) ? picked : null;
+  const setDate = (d: string | null) => setParams(d ? { date: d } : {}, { replace: true });
   const day = date ?? stats.data?.today ?? null;
   const me = useOperatorMe();
   const route = useRoute(day ?? "");
@@ -62,29 +70,27 @@ export function OperatorPage() {
 
   return (
     <>
-      <TopBar crumbs={[{ label: "Route", icon: RouteIcon }, { label: baler?.operator_name ?? "Operator" }]} />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[1100px] flex-col gap-5 px-4 py-5 md:px-8 md:py-8">
+      <BalerPage wide>
           {me.error ? <ErrorNote error={me.error} onRetry={() => void me.refetch()} /> : null}
 
           {/* date + availability */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1 rounded-[var(--radius-card)] border border-line bg-canvas p-1">
-              <Button variant="ghost" size="sm" aria-label="Previous day" onClick={() => day && setDate(addDays(day, -1))}>
-                <ChevronLeft className="size-4" />
-              </Button>
-              <div className="min-w-[132px] text-center text-sm font-medium">{day ? fmtDayLong(day) : "…"}</div>
-              <Button variant="ghost" size="sm" aria-label="Next day" onClick={() => day && setDate(addDays(day, 1))}>
-                <ChevronRight className="size-4" />
-              </Button>
+            <div className="flex flex-1 items-center gap-1 rounded-[var(--radius-card)] border border-line bg-canvas p-1 sm:flex-none">
+              <button aria-label="Previous day" className={STEP} onClick={() => day && setDate(addDays(day, -1))}>
+                <ChevronLeft className="size-5" />
+              </button>
+              <div className="min-w-[124px] flex-1 text-center text-sm font-medium">{day ? fmtDayLong(day) : "…"}</div>
+              <button aria-label="Next day" className={STEP} onClick={() => day && setDate(addDays(day, 1))}>
+                <ChevronRight className="size-5" />
+              </button>
             </div>
             {date && date !== stats.data?.today ? (
-              <Button size="sm" variant="ghost" onClick={() => setDate(null)}>
+              <Button variant="ghost" size="lg" onClick={() => setDate(null)}>
                 Today · आज
               </Button>
             ) : null}
             {baler ? (
-              <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[var(--radius-card)] border border-line bg-canvas px-3 py-2 sm:ml-auto sm:w-auto">
+              <div className="flex min-h-11 w-full items-center rounded-[var(--radius-card)] border border-line bg-canvas px-3 py-2 sm:ml-auto sm:w-auto">
                 <label className="flex items-center gap-2 text-sm">
                   <Toggle
                     checked={baler.active}
@@ -92,19 +98,8 @@ export function OperatorPage() {
                     disabled={update.isPending}
                     onChange={(v) => update.mutate({ active: v }, { onError: (e) => toast(e.message, "error") })}
                   />
-                  {baler.active ? "Available · उपलब्ध" : "Off duty"}
+                  {baler.active ? "Available · उपलब्ध" : "Off duty · छुट्टी"}
                 </label>
-                <div className="flex items-center gap-1.5 text-sm">
-                  <Button size="sm" variant="ghost" aria-label="Fewer acres per day" disabled={update.isPending || baler.acres_per_day <= 1}
-                    onClick={() => update.mutate({ acres_per_day: baler.acres_per_day - 1 })}>
-                    <Minus className="size-4" />
-                  </Button>
-                  <span className="tabular min-w-[64px] text-center">{fmtNum(baler.acres_per_day)} ac/day</span>
-                  <Button size="sm" variant="ghost" aria-label="More acres per day" disabled={update.isPending || baler.acres_per_day >= 60}
-                    onClick={() => update.mutate({ acres_per_day: baler.acres_per_day + 1 })}>
-                    <Plus className="size-4" />
-                  </Button>
-                </div>
               </div>
             ) : null}
           </div>
@@ -115,7 +110,7 @@ export function OperatorPage() {
               <BellRing className="mt-0.5 size-4 shrink-0 text-warn" />
               <div>
                 <div className="font-medium text-ink">
-                  Officer alert: {a.village_name} needs balers{a.distance_km != null ? ` · ${fmtNum(a.distance_km)} km away` : ""}
+                  Admin alert: {a.village_name} needs balers{a.distance_km != null ? ` · ${fmtNum(a.distance_km)} km away` : ""}
                 </div>
                 <div className="text-ink-2">
                   {a.unbooked_acres != null ? `${fmtNum(a.unbooked_acres)} unbooked acres. ` : ""}Farmers were offered a booking on WhatsApp;
@@ -144,7 +139,7 @@ export function OperatorPage() {
                   New bookings from farmers near your base appear here automatically.
                   {baler?.next_stop_date && baler.next_stop_date !== day ? (
                     <div className="mt-3">
-                      <Button variant="primary" size="sm" onClick={() => setDate(baler.next_stop_date ?? null)}>
+                      <Button variant="primary" size="lg" onClick={() => setDate(baler.next_stop_date ?? null)}>
                         Next stops: {fmtDayLong(baler.next_stop_date)}
                       </Button>
                     </div>
@@ -166,8 +161,7 @@ export function OperatorPage() {
               />
             </Card>
           </div>
-        </div>
-      </div>
+      </BalerPage>
       <ConfirmDialog
         open={!!confirm}
         title={`Mark ${confirm?.farmer_name ?? "this field"} done?`}
