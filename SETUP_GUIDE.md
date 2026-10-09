@@ -1,4 +1,4 @@
-# ClearSky: Setup Guide
+# clearsky: Setup Guide
 
 **Where things stand (2026-10-09):** every phase in `PLAN.md` except the satellite stretch (Phase 8) is built and tested on a laptop. That covers:
 - the WhatsApp farmer agent
@@ -43,7 +43,7 @@ git pull
 .\make.ps1 install              # Python deps (first time)
 
 # terminal 1: backend
-.\make.ps1 dev                  # wait for "ClearSky API on http://127.0.0.1:8787"
+.\make.ps1 dev                  # wait for "clearsky API on http://127.0.0.1:8787"
 
 # terminal 2: dashboard
 .\make.ps1 dashboard            # opens on http://localhost:5173
@@ -63,7 +63,7 @@ The full demo story is in `docs/demo_runbook.md`.
 
 ## 1. LLM API key (the farmer agent's brain)
 
-Bedrock isn't usable on the AWS account, so ClearSky can now use **any of these** (setting `LLM_PROVIDER`):
+Bedrock isn't usable on the AWS account, so clearsky can now use **any of these** (setting `LLM_PROVIDER`):
 
 | Provider | `LLM_PROVIDER` | Get a key at | Extra setting |
 |---|---|---|---|
@@ -130,7 +130,7 @@ The key saved on this laptop (user `Kamran_03`, account 416121583611) now return
 4. Give you the **Access key ID** and **Secret access key** privately (in person or a password-manager share).
 
 ### 3.2 Friend: budget alarm
-**Billing and Cost Management → Budgets → Create budget → Use a template → Monthly cost budget → $10 → email → Create.** ClearSky is serverless and should cost cents; this is a safety net.
+**Billing and Cost Management → Budgets → Create budget → Use a template → Monthly cost budget → $10 → email → Create.** clearsky is serverless and should cost cents; this is a safety net.
 
 ### 3.3 You: save and check the key
 ```powershell
@@ -241,7 +241,7 @@ Buyer IDs: `BY01` Demo Pellet Plant, `BY02` Demo CBG Plant, `BY03` Demo Boiler U
 Farmers only. Operators, buyers and officers never use WhatsApp.
 
 ### 7.1 Create the Meta app
-1. Go to <https://developers.facebook.com> → **My Apps → Create app** → use case **Other** → type **Business** → name `ClearSky` → create (create or select a Business portfolio when asked).
+1. Go to <https://developers.facebook.com> → **My Apps → Create app** → use case **Other** → type **Business** → name `clearsky` → create (create or select a Business portfolio when asked).
 2. In the app dashboard, **Add product → WhatsApp → Set up**.
 3. **WhatsApp → API Setup**: Meta gives you a free **test phone number**. Copy:
    - **Phone number ID** → `WA_PHONE_NUMBER_ID`
@@ -258,14 +258,14 @@ Farmers only. Operators, buyers and officers never use WhatsApp.
 2. In `infra\samconfig.toml` set `WaMode=cloud` and run `.\make.ps1 deploy -Confirm yes`.
 3. Meta → **WhatsApp → Configuration → Webhook → Edit**: Callback URL = **`WebhookUrl`** output; Verify token = your `WA_VERIFY_TOKEN` → **Verify and save** (it should say verified).
 4. **Webhook fields → Manage → subscribe to `messages`**.
-5. From a test phone, send `Namaste` to the test number. You get the ClearSky greeting. Send the Gurpreet message: you get a booking.
+5. From a test phone, send `Namaste` to the test number. You get the clearsky greeting. Send the Gurpreet message: you get a booking.
 6. Optional automated check: `python -m uv run python scripts\e2e.py --api-url <ApiUrl>` (from `backend`).
 
 ### 7.4 Permanent token (recommended before the demo)
 The temporary token dies after 24 h.
 1. <https://business.facebook.com> → **Business settings → Users → System users → Add** (Admin).
-2. **Assign assets → Apps → ClearSky → Full control**, and the WhatsApp account.
-3. **Generate new token** → app ClearSky → permissions `whatsapp_business_messaging`, `whatsapp_business_management` → copy.
+2. **Assign assets → Apps → clearsky → Full control**, and the WhatsApp account.
+3. **Generate new token** → app clearsky → permissions `whatsapp_business_messaging`, `whatsapp_business_management` → copy.
 4. Replace `WA_ACCESS_TOKEN` in `.env` → `.\scripts\put_secrets.ps1`.
 
 ### 7.4b Use our own WhatsApp number (instead of Meta's test number)

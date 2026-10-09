@@ -102,10 +102,10 @@ _MONTHS = {
 
 MSG: dict[str, dict[str, str]] = {
     "intro": {
-        HINGLISH: "Sat Sri Akal ji 🌾 Main ClearSky hoon. Parali jalane ki zaroorat nahi: hum baler bhej kar khet saaf karwate hain. Apna naam, gaon, kitne acre aur katai ki tareekh bataiye.",
-        HI: "सत श्री अकाल जी 🌾 मैं ClearSky हूँ। पराली जलाने की ज़रूरत नहीं: हम बेलर भेजकर खेत साफ़ करवाते हैं। अपना नाम, गाँव, कितने एकड़ और कटाई की तारीख बताइए।",
-        PA: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਜੀ 🌾 ਮੈਂ ClearSky ਹਾਂ। ਪਰਾਲੀ ਸਾੜਨ ਦੀ ਲੋੜ ਨਹੀਂ: ਅਸੀਂ ਬੇਲਰ ਭੇਜ ਕੇ ਖੇਤ ਸਾਫ਼ ਕਰਵਾਉਂਦੇ ਹਾਂ। ਆਪਣਾ ਨਾਂ, ਪਿੰਡ, ਕਿੰਨੇ ਏਕੜ ਅਤੇ ਕਟਾਈ ਦੀ ਤਾਰੀਖ ਦੱਸੋ।",
-        EN: "Hello 🌾 I'm ClearSky. No need to burn straw: we send a baler to clear your field. Please tell me your name, village, how many acres, and the harvest date.",
+        HINGLISH: "Sat Sri Akal ji 🌾 Main clearsky hoon. Parali jalane ki zaroorat nahi: hum baler bhej kar khet saaf karwate hain. Apna naam, gaon, kitne acre aur katai ki tareekh bataiye.",
+        HI: "सत श्री अकाल जी 🌾 मैं clearsky हूँ। पराली जलाने की ज़रूरत नहीं: हम बेलर भेजकर खेत साफ़ करवाते हैं। अपना नाम, गाँव, कितने एकड़ और कटाई की तारीख बताइए।",
+        PA: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਜੀ 🌾 ਮੈਂ clearsky ਹਾਂ। ਪਰਾਲੀ ਸਾੜਨ ਦੀ ਲੋੜ ਨਹੀਂ: ਅਸੀਂ ਬੇਲਰ ਭੇਜ ਕੇ ਖੇਤ ਸਾਫ਼ ਕਰਵਾਉਂਦੇ ਹਾਂ। ਆਪਣਾ ਨਾਂ, ਪਿੰਡ, ਕਿੰਨੇ ਏਕੜ ਅਤੇ ਕਟਾਈ ਦੀ ਤਾਰੀਖ ਦੱਸੋ।",
+        EN: "Hello 🌾 I'm clearsky. No need to burn straw: we send a baler to clear your field. Please tell me your name, village, how many acres, and the harvest date.",
     },
     "ask_name": {
         HINGLISH: "Aapka naam kya hai ji?",

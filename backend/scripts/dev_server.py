@@ -145,7 +145,7 @@ def main() -> int:
 
     httpd = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(
-        f"[dev] ClearSky API on http://127.0.0.1:{args.port}  (WA_MODE={s.wa_mode}, LLM={llm.describe()}, "
+        f"[dev] clearsky API on http://127.0.0.1:{args.port}  (WA_MODE={s.wa_mode}, LLM={llm.describe()}, "
         f"today={clock.today()})"
     )
     print("[dev] dashboard: cd dashboard && npm run dev  →  http://localhost:5173")

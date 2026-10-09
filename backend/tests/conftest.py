@@ -75,7 +75,7 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 @pytest.fixture
 def ddb() -> Iterator[None]:
-    """Mock AWS with every ClearSky table created."""
+    """Mock AWS with every clearsky table created."""
     with mock_aws():
         reset_clients()
         create_all_tables(ddb_client(), "test-")

@@ -1,4 +1,4 @@
-# ClearSky monorepo commands for Windows (same targets as the Makefile).
+# clearsky monorepo commands for Windows (same targets as the Makefile).
 #   .\make.ps1 test        .\make.ps1 chat        .\make.ps1 deploy -Confirm yes
 param(
     [Parameter(Position = 0)][string]$Target = "help",

@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-/** JSON fetch against the ClearSky API with the signed-in user's token. */
+/** JSON fetch against the clearsky API with the signed-in user's token. */
 export async function api<T>(path: string, init: { method?: string; body?: unknown; query?: Record<string, string | undefined> } = {}): Promise<T> {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(init.query ?? {})) if (v) params.set(k, v);

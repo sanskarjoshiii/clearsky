@@ -86,7 +86,7 @@ def main() -> int:
                     f"{json.dumps(c.result, ensure_ascii=False, default=str)[:300]}"
                 )
         print(f"🌾 {reply.text}   ({reply.latency_ms} ms)")
-        log.extend([f"**Farmer:** {text}", f"**ClearSky:** {reply.text}"])
+        log.extend([f"**Farmer:** {text}", f"**clearsky:** {reply.text}"])
         if reply.tool_calls:
             log.append("<sub>tools: " + ", ".join(c.name for c in reply.tool_calls) + "</sub>")
         return True

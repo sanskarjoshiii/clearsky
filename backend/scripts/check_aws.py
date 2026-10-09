@@ -1,4 +1,4 @@
-"""Phase 0: check AWS readiness for every service ClearSky needs. Prints a ✅/❌ table.
+"""Phase 0: check AWS readiness for every service clearsky needs. Prints a ✅/❌ table.
 
 All checks are read-only and free, except `--invoke-llm`, which sends one tiny prompt to the
 configured LLM (a few tokens, billed). Usage:  uv run python scripts/check_aws.py [--invoke-llm]

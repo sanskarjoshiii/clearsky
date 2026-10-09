@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Instructions for any AI coding assistant (Codex, Cursor, Copilot, Gemini, Claude, …) working on **ClearSky**. Claude Code reads `CLAUDE.md`, which has the same rules.
+Instructions for any AI coding assistant (Codex, Cursor, Copilot, Gemini, Claude, …) working on **clearsky**. Claude Code reads `CLAUDE.md`, which has the same rules.
 
 1. **Read `CONTEXT.md` first.** It is the living summary of what's built, what's decided, and what's next.
 2. Then read `README.md`, `IMPLEMENTATION.md` (design source of truth), `PLAN.md` (order and scope) and `PROGRESS.md` (once it exists).

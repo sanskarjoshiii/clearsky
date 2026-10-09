@@ -1,4 +1,4 @@
-# ClearSky design system
+# clearsky design system
 
 Derived from the references in `designs/` with `.agents/skills/design-from-references` (colours sampled with `probe.py`, not eyeballed). Tokens live in **one file**: `dashboard/src/styles.css` (`@theme`). A hex value anywhere else is a bug.
 
@@ -66,9 +66,9 @@ Canvas 14 px · cards 10 px · controls 8 px · chips 6 px · pills full. Canvas
 | Data table | `components/DataTable.tsx` | Sticky 36 px header, 40 px rows, hairline grid, keyboard-activatable rows. |
 | Chips | `ui.tsx` `Chip` | Neutral grey for categories; `agent` tone only for "via WhatsApp". |
 | Map | `components/MapView.tsx` | OpenFreeMap positron basemap (or Amazon Location style). Unbooked field = ring in its risk colour, booked = solid dot, village = translucent circle sized by unbooked acres. |
-| Farmer simulator | `components/Simulator.tsx` | Farmer messages right in bordered cards; agent replies left with a violet "ClearSky agent" label; WhatsApp buttons as lavender pills; composer with violet hairline. |
+| Farmer simulator | `components/Simulator.tsx` | Farmer messages right in bordered cards; agent replies left with a violet "clearsky agent" label; WhatsApp buttons as lavender pills; composer with violet hairline. |
 | Dialog / drawer / toast | `ui.tsx`, `FieldDrawer.tsx` | The only surfaces with shadows. |
 
 ## Translation notes
 
-The references are product UI, and so is ClearSky, so no marketing translation was needed. The `/impact` page is the only "presentation" surface: same canvas and hairlines, sized up (60 px headline, 64 px counters), one count-up animation, no colour beyond ink.
+The references are product UI, and so is clearsky, so no marketing translation was needed. The `/impact` page is the only "presentation" surface: same canvas and hairlines, sized up (60 px headline, 64 px counters), one count-up animation, no colour beyond ink.

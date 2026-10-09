@@ -11,7 +11,7 @@ Today the matcher **books instantly**:
 2. One DynamoDB transaction reserves capacity, writes a `Booking` with status `CONFIRMED`, and sets the field `BOOKED`.
 3. The farmer is told the date and baler at once (`agent/tools.book_pickup`, `agent/rules._booked_text`).
 
-The baler only finds out from their route. Real custom-hiring centres need to say **yes or no** (machine breakdown, a field too far off-road, already committed elsewhere). A silent no-show means a field that may be burnt. This is exactly what ClearSky exists to prevent.
+The baler only finds out from their route. Real custom-hiring centres need to say **yes or no** (machine breakdown, a field too far off-road, already committed elsewhere). A silent no-show means a field that may be burnt. This is exactly what clearsky exists to prevent.
 
 ## Proposed behaviour
 

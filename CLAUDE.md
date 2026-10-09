@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Project: **ClearSky**, a WhatsApp-first system that books straw pickup so paddy farmers don't burn stubble (AWS Environmental Hacks, Oct 8–11, 2026).
+Project: **clearsky**, a WhatsApp-first system that books straw pickup so paddy farmers don't burn stubble (AWS Environmental Hacks, Oct 8–11, 2026).
 
 ## Shape of the system
 - **Monorepo:** backend, infra, dashboard, data, satellite and video all live in this one repo.
@@ -12,7 +12,7 @@ Project: **ClearSky**, a WhatsApp-first system that books straw pickup so paddy 
 - **After every change** (code or docs, however small), update `CONTEXT.md`: current state, decisions, open questions, and one changelog line. Teammates' AI assistants rely on it.
 - When the user says **"implement phase N"**, follow `PLAN.md` §0 (Protocol) exactly: check dependencies → ask all ❓ questions in one message → implement → run the Definition of Done checks → update `PROGRESS.md` and `CONTEXT.md` → stop and summarise.
 - `IMPLEMENTATION.md` is the design source of truth; `PLAN.md` decides order and scope.
-- Use `ClearSky` in prose and `clearsky` in identifiers (package `clearsky`, stack/table prefix `clearsky-dev-`, SSM `/clearsky/{stage}/…`).
+- The name is always lowercase **clearsky**, in prose, UI and identifiers (package `clearsky`, stack/table prefix `clearsky-dev-`, SSM `/clearsky/{stage}/…`). The logo is `logo.png` (shown in a circle in the UI).
 
 ## Never
 - Invent secrets, model IDs, phone numbers, or real-world statistics. Ask.

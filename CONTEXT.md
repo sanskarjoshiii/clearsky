@@ -1,4 +1,4 @@
-# ClearSky: Project Context
+# clearsky: Project Context
 
 > **For AI assistants and teammates.** Read this first. It is the short, current picture of the project. For full detail, follow the links.
 >
@@ -13,9 +13,9 @@ _Last updated: 2026-10-09_
 
 ---
 
-## 1. What ClearSky is (one paragraph)
+## 1. What clearsky is (one paragraph)
 
-ClearSky stops paddy stubble burning in Punjab/Haryana by fixing the logistics: a farmer tells a **WhatsApp agent** (Hindi/Punjabi voice or text) their village, acres and harvest date; the backend **books the nearest free baler** before the wheat-sowing deadline and **routes the straw to a paying buyer**. Baler operators, buyers and district officers use a **web dashboard**; officers get a **Burn Risk Radar** of fields that are harvested but not booked, and can alert a village with one click. Built for WeMakeDevs × AWS Environmental Hacks, **Oct 8–11, 2026** (Air track).
+clearsky stops paddy stubble burning in Punjab/Haryana by fixing the logistics: a farmer tells a **WhatsApp agent** (Hindi/Punjabi voice or text) their village, acres and harvest date; the backend **books the nearest free baler** before the wheat-sowing deadline and **routes the straw to a paying buyer**. Baler operators, buyers and district officers use a **web dashboard**; officers get a **Burn Risk Radar** of fields that are harvested but not booked, and can alert a village with one click. Built for WeMakeDevs × AWS Environmental Hacks, **Oct 8–11, 2026** (Air track).
 
 ## 2. Current state
 
@@ -69,7 +69,7 @@ Full design: `IMPLEMENTATION.md`. Build order: `PLAN.md`. Phase logs and deviati
 | 2026-10-07 | Demo pricing: baling ₹600/acre, transport ₹8/t·km, fee ₹50/t, buyers ₹1,500–1,900/t. | PLAN default OK; labeled demo, never real prices | `config.py`, `seed/generate.py` |
 | 2026-10-07 | Oversized field (> baler's acres/day) books only an empty day; re-booking a booked field returns the existing booking; buyer condition pins demand. | Feasibility, retry safety, DynamoDB condition limits | `IMPLEMENTATION.md` §4 |
 | 2026-10-07 | IST is a fixed UTC+05:30 offset. | Windows lacks tzdata; India has no DST | `clock.py` |
-| 2026-10-07 | Project name is **ClearSky** (prose) / `clearsky` (identifiers). Previously "ParaliLink". | Team decision | All docs |
+| 2026-10-07 | Project name is **clearsky** (prose) / `clearsky` (identifiers). Previously "ParaliLink". | Team decision | All docs |
 | 2026-10-07 | **Monorepo** for all parts. | One place for API + dashboard changes | `README.md` §9, `IMPLEMENTATION.md` §1.2 |
 | 2026-10-07 | **WhatsApp is farmer-only.** Agent collects farmer info, books via tools, replies. | Keep the bot focused | `IMPLEMENTATION.md` §1.1, §7.3, §8 |
 | 2026-10-07 | **Baler operators use a simple dashboard** with Cognito login (`operator` group, `custom:baler_id`). No operator WhatsApp, no signed links. | Follows from the above | `IMPLEMENTATION.md` §2.4, §9–11 |
@@ -101,8 +101,10 @@ How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-
 
 ## 7. Changelog (newest first)
 
+- 2026-10-09 · Claude Code · Name is lowercase **clearsky** everywhere (docs, UI, bot replies); logo `logo.png` added, shown as a circle (`dashboard/public/logo.png`, favicon, rail, login, impact, README); login role rows no longer overflow · 33 files + `dashboard/public/*`, `logo.png`
+
 - 2026-10-09 · Claude Code · Wrote 4 GitHub issues as `docs/issues/*.md` + `scripts/create_github_issues.ps1`. @kamranp03: (1) baler/buyer self-registration with super-admin approval, (2) separate admin/baler/buyer apps and routing, (3) baler accepts/declines assigned fields (offer → accept/decline → reassign), (5) sourced pollution-avoided per cleared field + public impact page with a model-style impact table (ref designs/modelling-1.jpg). @akkki007: (4) production setup end to end (AWS deploy, LLM key, WhatsApp on our own number), then remove the farmer simulator. SETUP_GUIDE §7.4b added · `docs/issues/*`, `scripts/create_github_issues.ps1`, `SETUP_GUIDE.md`, `CONTEXT.md`
 - 2026-10-09 · Claude Code · Implemented Phases 4–7 and 9 (code): provider-agnostic LLM + rules bot; WhatsApp webhook/processor/notify/voice/templates with simulator mode; REST API with Cognito roles + dev auth; risk engine (RED ≥ 60), alerts, reminders, stats, demo mode; SAM for all of it; local dev server; dashboard (design system from `designs/`, officer super-admin, buyer, operator, impact, farmer simulator); Playwright smoke tests; docs: `SETUP_GUIDE.md` rewritten for the LLM-key path + Meta + Amplify, `docs/design-system.md`, `docs/demo_runbook.md`, `docs/whatsapp_templates.md`, `dashboard/README.md`; PROGRESS/IMPLEMENTATION/README updated · `backend/**`, `dashboard/**`, `infra/template.yaml`, `scripts/put_secrets.*`, `docs/**`, `Makefile`, `make.ps1`, root docs
 - 2026-10-08 · Claude Code · Added `SETUP_GUIDE.md` (AWS access on the friend's account, Bedrock model, Transcribe activation, deploy, FIRMS key, villages, prices, demo phone numbers, GitHub) and linked it from README; `git init` on `main` + first commit; push pending a remote URL · `SETUP_GUIDE.md`, `README.md`, `CONTEXT.md`
 - 2026-10-07 · Claude Code · Implemented Phases 0–3: backend package (config, clock, logging, models, repos, matcher, pricing, villages, FIRMS, seed, farmer agent), SAM template (tables, buckets, health API, FIRMS ingest, deps layer), scripts (check_aws, gen_seed, seed_dynamo, fetch_firms, book_all, chat_cli), Makefile + make.ps1, 93 tests; generated `data/seed`; PROGRESS.md created; README setup, IMPLEMENTATION §3.2/§4/§13/§14/§16 updated with as-built details · `backend/**`, `infra/**`, `data/seed/**`, `Makefile`, `make.ps1`, `.env.example`, `.gitignore`, `scripts/put_secrets.sh`, `PROGRESS.md`, `README.md`, `IMPLEMENTATION.md`, `CLAUDE.md`, `CONTEXT.md`
-- 2026-10-07 · Claude Code · Renamed project to ClearSky everywhere (fixed `clearsky ` trailing-space identifiers); made monorepo explicit; WhatsApp now farmer-only; baler operators moved to a simple Cognito dashboard; updated Phase 3–7 and 9 tasks accordingly; added `CONTEXT.md` and `AGENTS.md`; added "update CONTEXT.md after every change" rule · `README.md`, `IMPLEMENTATION.md`, `PLAN.md`, `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md`
+- 2026-10-07 · Claude Code · Renamed project to clearsky everywhere (fixed `clearsky ` trailing-space identifiers); made monorepo explicit; WhatsApp now farmer-only; baler operators moved to a simple Cognito dashboard; updated Phase 3–7 and 9 tasks accordingly; added `CONTEXT.md` and `AGENTS.md`; added "update CONTEXT.md after every change" rule · `README.md`, `IMPLEMENTATION.md`, `PLAN.md`, `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md`

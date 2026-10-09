@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-BOT_NAME = "ClearSky 🌾"
+BOT_NAME = "clearsky 🌾"
 
 _WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 

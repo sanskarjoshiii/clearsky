@@ -1,4 +1,6 @@
-# 🌾 ClearSky
+<p align="center"><img src="dashboard/public/logo.png" width="96" alt="clearsky logo" /></p>
+
+<h1 align="center">clearsky</h1>
 
 **Stop stubble fires before they start, by booking straw pickup over WhatsApp.**
 
@@ -29,7 +31,7 @@ Every October–November, paddy stubble burning in Punjab and Haryana adds heavi
 
 ## 2. The Solution
 
-ClearSky is a **WhatsApp-first coordination system for farmers**, with a simple web dashboard for everyone else. It:
+clearsky is a **WhatsApp-first coordination system for farmers**, with a simple web dashboard for everyone else. It:
 
 1. Lets a farmer register a field with **one voice note** in Hindi or Punjabi. The WhatsApp agent only talks to farmers: it collects their details and replies with a clear answer.
 2. **Automatically books** the nearest free baler before the sowing deadline.

@@ -6,7 +6,7 @@ labels: [feature, dashboard, backend, impact]
 
 ## Why
 
-ClearSky's whole point is that straw that is baled is straw that isn't burnt. Today we show **acres cleared** and **tonnes routed**, but not the thing judges and officials care about most: **how much air pollution we prevented**.
+clearsky's whole point is that straw that is baled is straw that isn't burnt. Today we show **acres cleared** and **tonnes routed**, but not the thing judges and officials care about most: **how much air pollution we prevented**.
 
 The plumbing exists but is switched off:
 - `EMISSION_FACTOR_PM25_KG_PER_TONNE` in `backend/src/clearsky/config.py` defaults to `None`.
@@ -24,7 +24,7 @@ We need a **sourced** calculation, shown:
 
 `designs/modelling-1.jpg` (also see `designs/proto-screen-3.jpg`). How we map it:
 
-| Reference element | ClearSky impact table |
+| Reference element | clearsky impact table |
 |---|---|
 | Group header chips ("ARR & Summary", "Account Summary") | **Village** groups (chip with village name; collapsible), plus a "District total" group at the top |
 | Row with `#`/`$` icon + variable name | One **cleared field**: farmer name (masked in public view, e.g. "Gurpreet S."), acres, cleared date |

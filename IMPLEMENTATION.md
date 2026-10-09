@@ -1,4 +1,4 @@
-# ClearSky: Implementation Guide
+# clearsky: Implementation Guide
 
 This is the technical source of truth. If `PLAN.md` and this file disagree, **this file wins on design** and **PLAN.md wins on order of work**. `CONTEXT.md` summarises the current state and must be updated whenever this file changes.
 
@@ -402,7 +402,7 @@ Validation lives in the tools, not the prompt: acres 0.5–100, dates within sea
 
 ### 7.3 System prompt (summary, full text in `agent/prompts.py`)
 
-- You are ClearSky's assistant for paddy farmers in Punjab/Haryana. Today is `{today}` (Asia/Kolkata). You only talk to farmers.
+- You are clearsky's assistant for paddy farmers in Punjab/Haryana. Today is `{today}` (Asia/Kolkata). You only talk to farmers.
 - Your job: collect the farmer's details (name, village, acres, harvest date), book through the tools, and reply with a clear answer. You never contact operators, buyers or officers.
 - Reply in the farmer's language (Hindi by default; Punjabi if they write Punjabi; English if English). Use **short sentences, max ~40 words**, simple words, and no jargon.
 - Goal: register the field (acres, harvest date, village) and book a pickup.

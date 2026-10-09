@@ -1,4 +1,4 @@
-# ClearSky monorepo commands (macOS/Linux). On Windows use:  .\make.ps1 <target>
+# clearsky monorepo commands (macOS/Linux). On Windows use:  .\make.ps1 <target>
 UV ?= uv
 SAM ?= sam
 CHAT_ARGS ?= --local --debug

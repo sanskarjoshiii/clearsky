@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  ClearSky - WhatsApp-first straw pickup booking (farmers) with dashboards for officers, buyers and
+  clearsky - WhatsApp-first straw pickup booking (farmers) with dashboards for officers, buyers and
   baler operators. Deploy only with explicit team approval.
 
 Parameters:
@@ -149,7 +149,7 @@ Resources:
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Description: ClearSky HTTP API (WhatsApp webhook + dashboard REST)
+      Description: clearsky HTTP API (WhatsApp webhook + dashboard REST)
       Auth:
         DefaultAuthorizer: CognitoJwt
         Authorizers:

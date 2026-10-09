@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * ClearSky design tokens. THIS FILE IS THE ONLY PLACE A HEX VALUE MAY APPEAR.
+ * clearsky design tokens. THIS FILE IS THE ONLY PLACE A HEX VALUE MAY APPEAR.
  * Measured from designs/ with .agents/skills/design-from-references/scripts/probe.py
  * (frame #fafafc, canvas #fff, hairline #e4e4e4, ink #1c1c1c, violet #5330b4, lavender #efebfc).
  * Rules live in docs/design-system.md. The short version:

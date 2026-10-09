@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!result.isSignedIn) throw new Error("Additional sign-in step required. Ask the team to reset your password.");
       queryClient.clear();
       const m = await loadMe();
-      if (!m) throw new Error("This account has no ClearSky role. Ask the team to add you to a group.");
+      if (!m) throw new Error("This account has no clearsky role. Ask the team to add you to a group.");
       return m;
     },
     [loadMe, queryClient],

@@ -32,7 +32,7 @@ function Bubble({ turn, onButton, busy }: { turn: Turn; onButton: (id: string, t
   return (
     <div className="max-w-[92%]">
       <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-agent">
-        <Sparkles className="size-3" /> ClearSky agent
+        <Sparkles className="size-3" /> clearsky agent
         {turn.kind === "template" || turn.kind === "buttons" ? <span className="text-faint">· proactive</span> : null}
         <span className="text-faint">· {fmtTime(turn.ts)}</span>
       </div>
@@ -158,7 +158,7 @@ export function Simulator({ onClose }: { onClose: () => void }) {
             onButton={(id, title) => send.mutate({ button_id: id, button_title: title }, { onError: (e) => toast(e.message, "error") })}
           />
         ))}
-        {send.isPending ? <div className="text-[13px] text-agent">ClearSky agent is typing…</div> : null}
+        {send.isPending ? <div className="text-[13px] text-agent">clearsky agent is typing…</div> : null}
       </div>
 
       <div className="shrink-0 px-3 pb-3">

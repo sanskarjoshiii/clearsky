@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from "react-router";
 import { useDevAccounts } from "../api/hooks";
 import type { Role } from "../api/types";
 import { homeFor, useAuth } from "../auth/AuthProvider";
+import { Logo } from "../components/Shell";
 import { Button, ErrorNote, Field, Input, Skeleton } from "../components/ui";
 import { env } from "../env";
 
@@ -46,9 +47,9 @@ function DevLogin() {
       {ROLES.map(({ role, title, hint, icon: Icon }) => {
         const list = accounts.data?.[role] ?? [];
         return (
-          <div key={role} className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-line p-3.5 sm:flex-row sm:items-center">
-            <div className="flex flex-1 items-center gap-3">
-              <div className="flex size-9 items-center justify-center rounded-[8px] bg-sunken text-ink-2">
+          <div key={role} className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-line p-3.5 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-sunken text-ink-2">
                 <Icon className="size-[18px]" strokeWidth={1.8} />
               </div>
               <div className="min-w-0">
@@ -56,13 +57,13 @@ function DevLogin() {
                 <div className="truncate text-xs text-muted">{hint}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {list.length > 1 ? (
                 <select
                   aria-label={`${title} account`}
                   value={pick[role]}
                   onChange={(e) => setPick({ ...pick, [role]: e.target.value })}
-                  className="h-9 max-w-[220px] rounded-[var(--radius-control)] border border-line-strong bg-canvas px-2 text-[13px]"
+                  className="h-9 w-full min-w-0 max-w-[190px] rounded-[var(--radius-control)] border border-line-strong bg-canvas px-2 text-[13px]"
                 >
                   {list.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -116,7 +117,7 @@ function CognitoLogin() {
       <Button variant="primary" className="w-full" loading={busy} type="submit">
         Sign in
       </Button>
-      <p className="text-xs text-faint">Accounts are created by the ClearSky team. Farmers don't need an account: they use WhatsApp.</p>
+      <p className="text-xs text-faint">Accounts are created by the clearsky team. Farmers don't need an account: they use WhatsApp.</p>
     </form>
   );
 }
@@ -128,14 +129,9 @@ export function Login() {
     <div className="flex min-h-dvh items-center justify-center bg-frame px-4 py-10">
       <div className="w-full max-w-[520px] animate-rise rounded-[var(--radius-canvas)] bg-canvas p-6 shadow-[var(--shadow-canvas)] sm:p-8">
         <div className="mb-7 flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-[10px] bg-ink">
-            <svg viewBox="0 0 32 32" className="size-6" aria-hidden>
-              <path d="M8 21c3-7 13-7 16 0" stroke="currentColor" strokeWidth="2.6" fill="none" strokeLinecap="round" className="text-frame" />
-              <circle cx="16" cy="12" r="3.2" className="fill-warn-fill" />
-            </svg>
-          </div>
+          <Logo size="size-11" />
           <div>
-            <h1 className="text-[22px] font-semibold tracking-[var(--tracking-display)]">ClearSky</h1>
+            <h1 className="text-[22px] font-semibold tracking-[var(--tracking-display)]">clearsky</h1>
             <p className="text-[13px] text-muted">Straw pickup instead of stubble fires</p>
           </div>
         </div>

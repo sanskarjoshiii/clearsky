@@ -1,4 +1,4 @@
-# ClearSky dashboard
+# clearsky dashboard
 
 Web app for everyone except farmers (farmers use WhatsApp):
 

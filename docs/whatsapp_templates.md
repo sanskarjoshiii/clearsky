@@ -1,6 +1,6 @@
 # WhatsApp message templates (submit in Meta Business Manager)
 
-ClearSky starts some conversations itself (reminders, officer alerts, "field cleared"). WhatsApp only allows that **outside the 24-hour window** with an **approved template**. Inside the window the same text goes out as a normal or button message, so the farmer sees the same words either way.
+clearsky starts some conversations itself (reminders, officer alerts, "field cleared"). WhatsApp only allows that **outside the 24-hour window** with an **approved template**. Inside the window the same text goes out as a normal or button message, so the farmer sees the same words either way.
 
 The body text below must match `backend/src/clearsky/channels/templates.py` exactly. `{{1}}`, `{{2}}` are filled in by the code.
 

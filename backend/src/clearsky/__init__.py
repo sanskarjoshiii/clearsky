@@ -1,1 +1,1 @@
-"""ClearSky backend package."""
+"""clearsky backend package."""

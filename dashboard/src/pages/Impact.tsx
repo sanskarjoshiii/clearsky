@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useStats } from "../api/hooks";
+import { Logo } from "../components/Shell";
 import { useAuth } from "../auth/AuthProvider";
 import { ErrorNote, Skeleton } from "../components/ui";
 import { fmtInr, fmtInt } from "../lib/format";
@@ -52,7 +53,8 @@ export function Impact() {
       <div className="mx-auto flex min-h-[calc(100dvh-1rem)] max-w-[1280px] flex-col rounded-[var(--radius-canvas)] bg-canvas shadow-[var(--shadow-canvas)]">
         <header className="flex items-center justify-between px-6 pt-6 sm:px-10 sm:pt-9">
           <div className="flex items-center gap-2 text-sm text-muted">
-            <span className="size-2 rounded-full bg-ok" /> Live · ClearSky, Sangrur
+            <Logo size="size-8" />
+            <span className="size-2 rounded-full bg-ok" /> Live · clearsky, Sangrur
           </div>
           {me ? (
             <Link to="/" className="text-sm text-muted hover:text-ink">

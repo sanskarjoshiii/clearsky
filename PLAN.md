@@ -1,4 +1,4 @@
-# ClearSky: Build Plan (Phase-wise)
+# clearsky: Build Plan (Phase-wise)
 
 This plan is written so the team (or Claude Code) can run **"implement phase N"** and get a complete, tested slice of the system.
 
@@ -169,7 +169,7 @@ LLM, WhatsApp.
 ### ❓ Ask the team
 1. Confirm `BEDROCK_MODEL_ID` (from Phase 0) and that it supports tool use.
 2. Default reply language: Hindi in Devanagari, Hindi in Roman script (Hinglish), or match the farmer? *(default OK: match the farmer; Devanagari for voice)*
-3. Bot name and greeting line? *(default OK: "ClearSky 🌾")*
+3. Bot name and greeting line? *(default OK: "clearsky 🌾")*
 
 ### Tasks
 1. `agent/prompts.py`: farmer system prompt per `IMPLEMENTATION.md` §7.3, with `{today}` injected.

@@ -1,5 +1,5 @@
 /**
- * Response shapes of the ClearSky REST API (backend/src/clearsky/handlers/api.py and models/).
+ * Response shapes of the clearsky REST API (backend/src/clearsky/handlers/api.py and models/).
  * Keep in sync with the backend in the same commit (IMPLEMENTATION.md §1.2).
  */
 
