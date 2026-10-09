@@ -3,7 +3,10 @@
  * Keep in sync with the backend in the same commit (IMPLEMENTATION.md §1.2).
  */
 
-export type Role = "officer" | "buyer" | "operator";
+/** The three role apps. A signed-in user with none of these is `pending` (self-registered, not approved yet). */
+export type AppRole = "officer" | "buyer" | "operator";
+export type Role = AppRole | "pending";
+export type ApplicationStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 export type RiskLevel = "GREEN" | "YELLOW" | "RED";
 export type FieldStatus = "REGISTERED" | "HARVESTED" | "BOOKED" | "CLEARED" | "FIRE_REPORTED";
 export type BookingStatus = "CONFIRMED" | "DONE" | "CANCELLED";
@@ -253,6 +256,59 @@ export interface DevAccounts {
   officer: { id: string; label: string }[];
   buyer: { id: string; label: string }[];
   operator: { id: string; label: string }[];
+  pending: { id: string; label: string }[];
+}
+
+/** A baler or buyer application (backend models.Application without the applicant's user ids). */
+export interface Application {
+  application_id: string;
+  email: string;
+  role: "operator" | "buyer";
+  status: ApplicationStatus;
+  name: string;
+  phone: string;
+  org_name: string;
+  village_id: string;
+  village_name?: string;
+  lat: number;
+  lng: number;
+  acres_per_day?: number | null;
+  radius_km?: number | null;
+  machine_details?: string;
+  type?: Buyer["type"] | null;
+  price_per_tonne?: number | null;
+  demand_tonnes?: number | null;
+  max_radius_km?: number | null;
+  created_at: string;
+  reviewed_at?: string | null;
+  reject_reason?: string | null;
+  entity_id?: string | null;
+  duplicates?: string[];
+}
+
+/** What the applicant sends to POST /api/register. */
+export interface ApplicationForm {
+  role: "operator" | "buyer";
+  name: string;
+  phone: string;
+  org_name: string;
+  village_id: string;
+  acres_per_day?: number;
+  radius_km?: number;
+  machine_details?: string;
+  type?: Buyer["type"];
+  price_per_tonne?: number;
+  demand_tonnes?: number;
+  max_radius_km?: number;
+}
+
+export interface VillageOption {
+  village_id: string;
+  name: string;
+  block: string;
+  lat?: number;
+  lng?: number;
+  score?: number;
 }
 
 export interface Layer {

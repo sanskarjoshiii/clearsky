@@ -25,11 +25,15 @@ function readDevToken(): string | null {
   }
 }
 
-export async function getToken(): Promise<string | null> {
+/**
+ * `forceRefresh` asks Cognito for a new ID token. Needed right after the officer approves a
+ * registration: the group and baler/buyer id are only in a freshly issued token.
+ */
+export async function getToken(forceRefresh = false): Promise<string | null> {
   if (env.authMode === "dev") return readDevToken();
   const { fetchAuthSession } = await import("aws-amplify/auth");
   try {
-    const session = await fetchAuthSession();
+    const session = await fetchAuthSession({ forceRefresh });
     return session.tokens?.idToken?.toString() ?? null;
   } catch {
     return null;

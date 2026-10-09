@@ -1,7 +1,8 @@
 """Dashboard REST API (IMPLEMENTATION.md §9). One Lambda, Powertools HTTP API resolver.
 
-Roles: officer (government super admin: radar, alerts, every table, demo controls), buyer (industry:
-own demand and supply), operator (baler: own stops only; baler_id comes from the token, never the URL).
+Roles: officer (government super admin: radar, alerts, every table, approvals, demo controls), buyer
+(industry: own demand and supply), operator (baler: own stops only; baler_id comes from the token, never
+the URL), pending (self-registered, not approved yet: registration endpoints only).
 Errors are JSON `{"error": {"code", "message"}}`.
 """
 
@@ -20,12 +21,13 @@ from clearsky.channels import notify
 from clearsky.channels.templates import FIELD_CLEARED
 from clearsky.config import get_settings
 from clearsky.domain import alerts as alerts_domain
-from clearsky.domain import demo, matching, stats
+from clearsky.domain import demo, matching, registration, stats
 from clearsky.domain.geo import haversine_km
 from clearsky.logging import get_logger, mask_phone
-from clearsky.models import BookingStatus
+from clearsky.models import ApplicationStatus, BookingStatus
 from clearsky.repo import (
     AlertsRepo,
+    ApplicationsRepo,
     BalerDaysRepo,
     BalersRepo,
     BookingsRepo,
@@ -76,11 +78,19 @@ def _service_error(e: ServiceError) -> Response:
     )
 
 
+@app.exception_handler(registration.RegistrationError)
+def _registration_error(e: registration.RegistrationError) -> Response:
+    return Response(
+        e.status, content_types.APPLICATION_JSON, {"error": {"code": e.code, "message": e.message}}
+    )
+
+
 @app.exception_handler(ValidationError)
 def _validation_error(e: ValidationError) -> Response:
     errors = e.errors()
     first: dict[str, Any] = dict(errors[0]) if errors else {}
-    msg = f"{'.'.join(str(p) for p in first.get('loc', []))}: {first.get('msg', 'invalid')}"
+    where = ".".join(str(p) for p in first.get("loc", []))
+    msg = f"{where}: {first.get('msg', 'invalid')}" if where else str(first.get("msg", "invalid"))
     return Response(400, content_types.APPLICATION_JSON, {"error": {"code": "bad_request", "message": msg}})
 
 
@@ -145,6 +155,8 @@ def get_me() -> dict[str, Any]:
     elif p.role == "operator" and p.baler_id:
         bl = BalersRepo().get(p.baler_id)
         out["display_name"] = bl.operator_name if bl else p.baler_id
+    elif p.role == auth.PENDING:
+        out["display_name"] = p.email or "Applicant"
     else:
         out["display_name"] = "District Officer" + (f", {p.district}" if p.district else "")
     out["config"] = {
@@ -166,8 +178,10 @@ def dev_login() -> dict[str, Any]:
     if not get_settings().dev_auth:
         raise ApiError(404, "not_found", "dev login is disabled")
     req = body(DevLogin)
-    if req.role not in auth.ROLES:
+    if req.role not in (*auth.ROLES, auth.PENDING):
         raise ApiError(400, "bad_request", "unknown role")
+    if req.role == auth.PENDING and not (req.id and req.id.replace("-", "").isalnum()):
+        raise ApiError(400, "bad_request", "a pending dev login needs an id (letters and digits)")
     token = auth.dev_token(req.role, req.id)
     p = auth.from_dev_header(f"Bearer {token}")
     return {"token": token, "principal": p.as_dict() if p else None}
@@ -185,7 +199,53 @@ def dev_accounts() -> dict[str, Any]:
             {"id": b.baler_id, "label": f"{b.operator_name} · {b.chc_name}"}
             for b in sorted(BalersRepo().list_all(), key=lambda b: b.baler_id)
         ],
+        # a fresh self-registered user (no role yet); approved applicants show up in the lists above
+        "pending": [{"id": "applicant", "label": "New applicant (pending approval)"}],
     }
+
+
+# ------------------------------------------------------------------ registration (pending users)
+
+
+def _application_json(a: Any, villages: dict[str, Any] | None = None) -> dict[str, Any]:
+    row: dict[str, Any] = a.model_dump(mode="json", exclude={"sub", "username"})
+    if villages is not None:
+        row["village_name"] = villages[a.village_id].name if a.village_id in villages else a.village_id
+    return row
+
+
+@app.get("/api/register/villages")
+def register_villages() -> dict[str, Any]:
+    """Village list for the application form (any signed-in user). `q` = fuzzy search in any script."""
+    principal()
+    name = q("q")
+    if name:
+        from clearsky.domain import villages as villages_domain
+
+        return {"villages": [m.model_dump() for m in villages_domain.resolve(name, limit=5)]}
+    rows = sorted(VillagesRepo().list_all(), key=lambda v: v.name)
+    return {
+        "villages": [
+            {"village_id": v.village_id, "name": v.name, "block": v.block, "lat": v.lat, "lng": v.lng}
+            for v in rows
+        ]
+    }
+
+
+@app.post("/api/register")
+def register_submit() -> dict[str, Any]:
+    p = require(auth.PENDING)
+    created = registration.submit(p, body(registration.ApplicationForm))
+    return {"application": _application_json(created)}
+
+
+@app.get("/api/register/me")
+def register_me() -> dict[str, Any]:
+    """The caller's latest application (None if they signed up but never applied)."""
+    p = principal()
+    latest = registration.latest(p.sub)
+    villages = {v.village_id: v for v in VillagesRepo().list_all()} if latest else {}
+    return {"application": _application_json(latest, villages) if latest else None}
 
 
 # ------------------------------------------------------------------ officer (super admin)
@@ -345,6 +405,61 @@ def list_balers() -> dict[str, Any]:
         )
         out.append(row)
     return {"balers": out}
+
+
+class ActiveUpdate(BaseModel):
+    active: bool
+
+
+@app.post("/api/balers/<baler_id>/active")
+def baler_set_active(baler_id: str) -> dict[str, Any]:
+    """Officer deactivates (or reactivates) a baler: no new bookings; existing ones stay."""
+    require("officer")
+    updated = registration.set_baler_active(baler_id, body(ActiveUpdate).active)
+    return {"baler": updated.model_dump(mode="json")}
+
+
+@app.get("/api/applications")
+def list_applications() -> dict[str, Any]:
+    require("officer")
+    status = q("status")
+    repo = ApplicationsRepo()
+    if status:
+        try:
+            items = repo.by_status(ApplicationStatus(status.upper()))
+        except ValueError as e:
+            raise ApiError(400, "bad_request", "unknown status") from e
+    else:
+        items = repo.list_all()
+    villages = {v.village_id: v for v in VillagesRepo().list_all()}
+    balers, buyers = BalersRepo().list_all(), BuyersRepo().list_all()
+    rows = []
+    for a in items:
+        row = _application_json(a, villages)
+        row["duplicates"] = (
+            registration.duplicates(a, balers, buyers) if a.status == ApplicationStatus.PENDING else []
+        )
+        rows.append(row)
+    pending = sum(1 for a in repo.list_all() if a.status == ApplicationStatus.PENDING)
+    return {"applications": rows, "pending": pending}
+
+
+@app.post("/api/applications/<application_id>/approve")
+def application_approve(application_id: str) -> dict[str, Any]:
+    p = require("officer")
+    approved, entity = registration.approve(application_id, p.sub)
+    return {"application": _application_json(approved), "entity": entity.model_dump(mode="json")}
+
+
+class RejectRequest(BaseModel):
+    reason: str = PField(min_length=3, max_length=500)
+
+
+@app.post("/api/applications/<application_id>/reject")
+def application_reject(application_id: str) -> dict[str, Any]:
+    p = require("officer")
+    rejected = registration.reject(application_id, p.sub, body(RejectRequest).reason)
+    return {"application": _application_json(rejected)}
 
 
 @app.get("/api/buyers")

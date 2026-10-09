@@ -45,7 +45,9 @@ def test_cognito_claims(api: None) -> None:
     claims = {"sub": "abc", "cognito:groups": "[operator]", "custom:baler_id": "B01", "email": "o@x"}
     status, me = call("GET", "/api/me", claims=claims)
     assert status == 200 and me["role"] == "operator" and me["baler_id"] == "B01" and not me["dev"]
-    assert call("GET", "/api/me", claims={"sub": "x", "cognito:groups": "[nobody]"})[0] == 401
+    # signed in but in no clearsky group: a self-registered user waiting for approval
+    assert call("GET", "/api/me", claims={"sub": "x", "cognito:groups": "[nobody]"})[1]["role"] == "pending"
+    assert call("GET", "/api/villages", claims={"sub": "x", "cognito:groups": "[nobody]"})[0] == 403
 
 
 def test_dev_login_and_accounts(api: None) -> None:

@@ -3,6 +3,9 @@ import { api } from "./client";
 import type {
   Alert,
   AlertResult,
+  Application,
+  ApplicationForm,
+  ApplicationStatus,
   Baler,
   BalerHistory,
   BookingRow,
@@ -19,6 +22,7 @@ import type {
   Supply,
   Turn,
   Village,
+  VillageOption,
 } from "./types";
 
 /** Live screens poll every 10 s (PLAN.md Phase 7) so pins and stops update without a refresh. */
@@ -75,6 +79,67 @@ export function useSendAlert() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["alerts"] });
       void qc.invalidateQueries({ queryKey: ["sim"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------- registration + approvals
+/** The signed-in user's latest application. Polled while it is under review so approval shows up by itself. */
+export const useMyApplication = (enabled: boolean, poll = true) =>
+  useQuery({
+    queryKey: ["register", "me"],
+    queryFn: async () => (await api<{ application: Application | null }>("/api/register/me")).application,
+    enabled,
+    refetchInterval: poll ? 5000 : false,
+  });
+
+export const useVillageSearch = (q: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["register", "villages", q],
+    queryFn: async () => (await api<{ villages: VillageOption[] }>("/api/register/villages", { query: { q } })).villages,
+    enabled,
+    staleTime: 60_000,
+  });
+
+export function useSubmitApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (form: ApplicationForm) => api<{ application: Application }>("/api/register", { method: "POST", body: form }),
+    onSuccess: (data) => qc.setQueryData(["register", "me"], data.application),
+  });
+}
+
+export const useApplications = (status?: ApplicationStatus) =>
+  useQuery({
+    queryKey: ["applications", status ?? "all"],
+    queryFn: () => api<{ applications: Application[]; pending: number }>("/api/applications", { query: { status } }),
+    refetchInterval: LIVE,
+  });
+
+export function useReviewApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; action: "approve" } | { id: string; action: "reject"; reason: string }) =>
+      api<{ application: Application }>(`/api/applications/${v.id}/${v.action}`, {
+        method: "POST",
+        body: v.action === "reject" ? { reason: v.reason } : undefined,
+      }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["applications"] });
+      void qc.invalidateQueries({ queryKey: ["balers"] });
+      void qc.invalidateQueries({ queryKey: ["buyers"] });
+    },
+  });
+}
+
+export function useSetBalerActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { baler_id: string; active: boolean }) =>
+      api<{ baler: Baler }>(`/api/balers/${v.baler_id}/active`, { method: "POST", body: { active: v.active } }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["balers"] });
+      void qc.invalidateQueries({ queryKey: ["applications"] });
     },
   });
 }

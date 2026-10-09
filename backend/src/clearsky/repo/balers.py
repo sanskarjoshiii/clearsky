@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
 from clearsky.models import Baler, BalerDay, from_item, to_item
 from clearsky.repo.base import batch_put, query_all, scan_all, table
@@ -18,6 +19,16 @@ class BalersRepo:
 
     def put(self, b: Baler) -> None:
         self.t.put_item(Item=to_item(b))
+
+    def put_new(self, b: Baler) -> bool:
+        """Create a baler only if the id is free. False = the id was taken meanwhile."""
+        try:
+            self.t.put_item(Item=to_item(b), ConditionExpression="attribute_not_exists(baler_id)")
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+                return False
+            raise
+        return True
 
     def put_many(self, balers: list[Baler]) -> None:
         batch_put(self.t, [to_item(b) for b in balers])

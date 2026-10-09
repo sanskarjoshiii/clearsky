@@ -206,7 +206,9 @@ python -m uv tool run --from aws-sam-cli sam delete --stack-name clearsky-dev
 
 ## 5. Dashboard users (Cognito)
 
-Users can't self-register. Create them (passwords print once; share them privately):
+**Balers and buyers register themselves.** On the login page they press **Create an account**, choose *Baler operator* or *Industry buyer*, verify their email with a 6-digit code, and fill in a short form. The officer then opens **Admin → Approvals**, checks the details and presses **Approve** (or **Reject** with a reason). Approval creates their baler/buyer record and lets them sign in to their own app; nobody has to create a user by hand.
+
+The **officer** account (and any demo accounts) is still created by the team (passwords print once; share them privately):
 ```powershell
 cd C:\Users\prema\Desktop\clearsky\backend
 python -m uv run python scripts\create_demo_users.py `
@@ -214,7 +216,11 @@ python -m uv run python scripts\create_demo_users.py `
   --buyer buyer@yourteam.in:BY03 `
   --operator operator1@yourteam.in:B01 --operator operator2@yourteam.in:B02
 ```
-Buyer IDs: `BY01` Demo Pellet Plant, `BY02` Demo CBG Plant, `BY03` Demo Boiler Unit. Baler IDs: `B01`–`B10` (see the Balers table).
+Buyer IDs: `BY01` Demo Pellet Plant, `BY02` Demo CBG Plant, `BY03` Demo Boiler Unit. Baler IDs: `B01`–`B10` (see the Balers table). Self-registered balers and buyers get the next ids (`B11`, `BY04`, …) on approval.
+
+Try it locally first (no AWS): on <http://localhost:5173/login> press **Create an account**, apply as a baler, then sign in as **Admin** in another browser window and approve it under **Approvals**. The first window moves to the baler app by itself.
+
+> Deploying this version changes the user pool to allow self sign-up and adds the `Applications` table and three Cognito admin permissions for the API function. Sign-up emails use Cognito's built-in sender, which has a low daily limit; for real volumes connect Amazon SES to the user pool.
 
 ---
 

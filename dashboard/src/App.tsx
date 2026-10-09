@@ -3,6 +3,8 @@ import { Navigate, createBrowserRouter, useLocation } from "react-router";
 import { homeFor, useAuth } from "./auth/AuthProvider";
 import { Loading, RequireRole } from "./auth/RequireRole";
 import { Login } from "./pages/Login";
+import { Pending } from "./pages/register/Pending";
+import { Register } from "./pages/register/Register";
 
 function Home() {
   const { me, loading } = useAuth();
@@ -36,6 +38,9 @@ export const router = createBrowserRouter([
   { path: "/", element: <Home /> },
   { path: "/login", element: <Login /> },
   { path: "/impact", element: <Impact /> },
+  // self-registration: /register is public (sign-up + application form); /pending is the waiting room
+  { path: "/register", element: <Register /> },
+  { path: "/pending", element: <Pending /> },
   {
     element: <RequireRole role="officer" />,
     children: [{ path: "/admin/*", lazy: () => import("./apps/admin/routes"), hydrateFallbackElement: <Loading /> }],

@@ -7,7 +7,14 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field as PField
 
-from clearsky.models.enums import BookingStatus, BuyerType, FieldStatus, Language, RiskLevel
+from clearsky.models.enums import (
+    ApplicationStatus,
+    BookingStatus,
+    BuyerType,
+    FieldStatus,
+    Language,
+    RiskLevel,
+)
 
 
 class _Model(BaseModel):
@@ -118,6 +125,38 @@ class Booking(_Model):
     status: BookingStatus = BookingStatus.CONFIRMED
     created_at: datetime
     done_at: datetime | None = None
+
+
+class Application(_Model):
+    """A self-registered baler operator or industry buyer waiting for the officer's decision."""
+
+    application_id: str
+    sub: str  # Cognito user id of the applicant
+    username: str = ""  # Cognito username for the admin calls on approval
+    email: str = ""  # from the token, never from the form
+    role: str  # "operator" | "buyer"
+    status: ApplicationStatus = ApplicationStatus.PENDING
+    name: str
+    phone: str  # E.164
+    org_name: str  # custom hiring centre or company
+    village_id: str
+    lat: float
+    lng: float
+    # baler only → becomes the Baler row
+    acres_per_day: float | None = None
+    radius_km: float | None = None
+    machine_details: str = ""
+    # buyer only → becomes the Buyer row
+    type: BuyerType | None = None
+    price_per_tonne: float | None = None
+    demand_tonnes: float | None = None
+    max_radius_km: float | None = None
+    # audit
+    created_at: datetime
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    reject_reason: str | None = None
+    entity_id: str | None = None  # the created B… / BY…
 
 
 class Alert(_Model):

@@ -1,11 +1,11 @@
 import { CalendarCheck, Factory, Search, Table2, Tractor } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useBalers, useBookings, useBuyers, useFields, useStats, useVillages } from "../../../api/hooks";
+import { useBalers, useBookings, useBuyers, useFields, useSetBalerActive, useStats, useVillages } from "../../../api/hooks";
 import type { Baler, BookingRow, Buyer, FieldRow } from "../../../api/types";
 import { DataTable } from "../../../components/DataTable";
 import { FieldDrawer } from "../../../components/FieldDrawer";
 import { PageBody, TopBar } from "../../../components/Shell";
-import { Card, Chip, ErrorNote, Input, PageTitle, RiskPill, Segmented, StatusChip } from "../../../components/ui";
+import { Button, Card, Chip, ConfirmDialog, ErrorNote, Input, PageTitle, RiskPill, Segmented, StatusChip, useToast } from "../../../components/ui";
 import { addDays, fmtDay, fmtInr, fmtNum } from "../../../lib/format";
 import { useAlertVillage } from "./Radar";
 
@@ -184,11 +184,16 @@ function WeekBars({ baler }: { baler: Baler }) {
 
 export function Balers() {
   const balers = useBalers();
+  const setActive = useSetBalerActive();
+  const toast = useToast();
+  const [target, setTarget] = useState<Baler | null>(null);
   return (
     <>
       <TopBar crumbs={[{ label: "Database", icon: Tractor }, { label: "Balers" }]} />
       <PageBody wide>
-        <PageTitle sub="Custom hiring centre balers. Operators manage their own capacity and route on their dashboard.">Balers</PageTitle>
+        <PageTitle sub="Custom hiring centre balers. Operators manage their own capacity and route on their dashboard; you can switch a baler off so it gets no new bookings.">
+          Balers
+        </PageTitle>
         {balers.error ? <ErrorNote error={balers.error} onRetry={() => void balers.refetch()} /> : null}
         <Card bodyClassName="p-0">
           <DataTable<Baler>
@@ -206,10 +211,43 @@ export function Balers() {
               { key: "week", header: "Next 7 days", render: (b) => <WeekBars baler={b} /> },
               { key: "stops", header: "Upcoming stops", align: "right", render: (b) => b.upcoming_stops ?? 0 },
               { key: "active", header: "Status", render: (b) => <Chip>{b.active ? "Available" : "Off duty"}</Chip> },
+              {
+                key: "act",
+                header: "",
+                render: (b) => (
+                  <Button size="sm" variant="ghost" aria-label={`${b.active ? "Deactivate" : "Reactivate"} ${b.baler_id}`} onClick={() => setTarget(b)}>
+                    {b.active ? "Deactivate" : "Reactivate"}
+                  </Button>
+                ),
+              },
             ]}
           />
         </Card>
       </PageBody>
+      <ConfirmDialog
+        open={!!target}
+        title={target?.active ? `Deactivate ${target.operator_name}?` : `Reactivate ${target?.operator_name ?? "baler"}?`}
+        confirmLabel={target?.active ? "Deactivate" : "Reactivate"}
+        busy={setActive.isPending}
+        onClose={() => setTarget(null)}
+        onConfirm={() =>
+          target &&
+          setActive.mutate(
+            { baler_id: target.baler_id, active: !target.active },
+            {
+              onSuccess: () => {
+                toast(target.active ? "Baler deactivated: no new bookings." : "Baler reactivated.");
+                setTarget(null);
+              },
+              onError: (e) => toast(e.message, "error"),
+            },
+          )
+        }
+      >
+        {target?.active
+          ? "The matcher stops sending new bookings to this baler, and a self-registered operator can no longer sign in to the baler app. Stops already confirmed stay on the route."
+          : "The baler gets new bookings again, and the operator can sign in."}
+      </ConfirmDialog>
     </>
   );
 }

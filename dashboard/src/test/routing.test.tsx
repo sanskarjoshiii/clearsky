@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Me, Role } from "../api/types";
+import type { AppRole, Me, Role } from "../api/types";
 import { appOf, homeFor, landingFor } from "../auth/AuthProvider";
 import { RequireRole } from "../auth/RequireRole";
 import { ToastProvider } from "../components/ui";
@@ -31,12 +31,18 @@ function LoginProbe() {
 
 function open(path: string, me: Me | null) {
   auth.me = me;
-  const app = (role: Role, base: string, text: string) => ({
+  const app = (role: AppRole, base: string, text: string) => ({
     element: <RequireRole role={role} />,
     children: [{ path: `${base}/*`, element: <p>{text}</p> }],
   });
   const router = createMemoryRouter(
-    [{ path: "/login", element: <LoginProbe /> }, app("officer", "/admin", "admin page"), app("operator", "/baler", "baler page"), app("buyer", "/buyer", "buyer page")],
+    [
+      { path: "/login", element: <LoginProbe /> },
+      { path: "/pending", element: <p>pending page</p> },
+      app("officer", "/admin", "admin page"),
+      app("operator", "/baler", "baler page"),
+      app("buyer", "/buyer", "buyer page"),
+    ],
     { initialEntries: [path] },
   );
   render(
@@ -68,6 +74,13 @@ describe("RequireRole", () => {
     expect(screen.queryByText("admin page")).not.toBeInTheDocument();
   });
 
+  it("sends a registered user who is not approved yet to /pending, without a wrong-app notice", async () => {
+    open("/baler/requests", user("pending"));
+    expect(await screen.findByText("pending page")).toBeInTheDocument();
+    expect(screen.queryByText(/That page is for/)).not.toBeInTheDocument();
+    expect(screen.queryByText("baler page")).not.toBeInTheDocument();
+  });
+
   it("shows nothing protected while the session is still loading", () => {
     auth.loading = true;
     open("/admin", user("officer"));
@@ -88,5 +101,7 @@ describe("role homes", () => {
     expect(landingFor("operator", "/baler/requests?x=1")).toBe("/baler/requests?x=1");
     expect(landingFor("operator", "/admin/fields")).toBe("/baler");
     expect(landingFor("buyer", null)).toBe("/buyer");
+    expect(homeFor("pending")).toBe("/pending");
+    expect(landingFor("pending", "/admin/approvals")).toBe("/pending");
   });
 });

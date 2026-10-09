@@ -1,7 +1,9 @@
 """Who is calling the dashboard API (IMPLEMENTATION.md §11).
 
 Deployed: API Gateway's Cognito JWT authorizer has already verified the ID token; we read its claims
-(`cognito:groups`, `custom:district`, `custom:buyer_id`, `custom:baler_id`).
+(`cognito:groups`, `custom:district`, `custom:buyer_id`, `custom:baler_id`). A signed-in user with no
+clearsky group is `pending`: they registered themselves and may only use the registration endpoints
+until the district officer approves them (domain/registration.py).
 Local dev only (DEV_AUTH=true): `Authorization: Bearer dev.<role>.<id>` is accepted without a
 signature so the dashboard can be exercised with no Cognito. Never enable DEV_AUTH in a shared stack.
 """
@@ -14,6 +16,7 @@ from typing import Any
 from clearsky.config import get_settings
 
 ROLES = ("officer", "buyer", "operator")
+PENDING = "pending"  # signed in, not (yet) approved for a role
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,7 @@ class Principal:
     buyer_id: str | None = None
     baler_id: str | None = None
     dev: bool = False
+    username: str = ""  # Cognito username (needed for admin calls on approval); the sub if absent
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -50,16 +54,15 @@ def from_claims(claims: dict[str, Any] | None) -> Principal | None:
     if not claims or not claims.get("sub"):
         return None
     groups = _groups(claims.get("cognito:groups"))
-    role = next((r for r in ROLES if r in groups), None)
-    if role is None:
-        return None
+    role = next((r for r in ROLES if r in groups), PENDING)
     return Principal(
         sub=str(claims["sub"]),
         role=role,
         email=str(claims.get("email", "")),
-        district=claims.get("custom:district"),
-        buyer_id=claims.get("custom:buyer_id"),
-        baler_id=claims.get("custom:baler_id"),
+        district=claims.get("custom:district") if role == "officer" else None,
+        buyer_id=claims.get("custom:buyer_id") if role == "buyer" else None,
+        baler_id=claims.get("custom:baler_id") if role == "operator" else None,
+        username=str(claims.get("cognito:username") or claims["sub"]),
     )
 
 
@@ -72,15 +75,16 @@ def from_dev_header(authorization: str | None) -> Principal | None:
         return None
     token = authorization.removeprefix("Bearer ").strip()
     parts = token.split(".", 2)
-    if len(parts) != 3 or parts[0] != "dev" or parts[1] not in ROLES:
+    if len(parts) != 3 or parts[0] != "dev" or parts[1] not in (*ROLES, PENDING):
         return None
     role, ident = parts[1], parts[2]
     return Principal(
         sub=f"dev-{role}-{ident}",
         role=role,
-        email=f"{role}@dev.local",
+        email=f"{ident}@dev.local" if role == PENDING else f"{role}@dev.local",
         district=ident if role == "officer" and ident != "officer" else None,
         buyer_id=ident if role == "buyer" else None,
         baler_id=ident if role == "operator" else None,
         dev=True,
+        username=f"dev-{role}-{ident}",
     )

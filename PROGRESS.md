@@ -15,9 +15,9 @@ Legend: ✅ done · 🟡 code complete and tested; a Definition-of-Done item is 
 | 8 Satellite | ⬜ | | Stretch; not started (cut line 1 in PLAN.md). |
 | 9 Demo/Submit | 🟡 | 2026-10-09 | Demo mode API + UI + `demo_clock.py` + runbook done. Not done: 3× runbook on the deployed stack, video, blog, submission (team). |
 
-Post-phase work (GitHub issues, see the log at the end): #2 role apps + routing, implemented locally (deploy pending like every phase).
+Post-phase work (GitHub issues, see the log at the end): #2 role apps + routing · #1 self-registration + approval, implemented locally (deploy pending like every phase).
 
-Test suite on this branch (2026-10-09): **178 backend tests** passed, ruff and mypy clean; **14 Vitest** passed, `tsc` and `npm run build` clean. Playwright was run on the complete stack (top branch), not on this branch alone.
+Test suite on this branch (2026-10-09): **190 backend tests** passed, ruff and mypy clean; **15 Vitest** passed, `tsc` clean. Playwright was run on the complete stack (top branch), not on this branch alone.
 
 ---
 
@@ -106,3 +106,9 @@ Test suite on this branch (2026-10-09): **178 backend tests** passed, ruff and m
 - **Verified:** `npm run typecheck`, Vitest (route guards), `npm run build` (buyer chunk loads no map; baler and admin chunks load no charts), Playwright `e2e/apps.spec.ts` (one test per role + deep-link return + old-URL redirects), backend API tests.
 - **Deviations:** shared modules were left in `src/components`, `src/api`, `src/lib`, `src/auth` instead of a new `src/shared/`; `/baler/requests` arrives with issue #3; demand history is stored in the `Settings` table.
 - **Fixes found on the way:** Vitest was collecting Playwright specs (now `include: src/**`); the dev server could mix up parallel requests (now serialised); React was bundled into the charts chunk (now prioritised chunk groups).
+
+### Issue #1: self-registration with super-admin approval (built 2026-10-09)
+- **Built:** `pending` role (`auth.py`), `Applications` table (schema + SAM), `domain/registration.py`, endpoints (`/api/register`, `/api/register/me`, `/api/register/villages`, `/api/applications`, `…/approve`, `…/reject`, `/api/balers/{id}/active`), Cognito self sign-up + IAM + `USER_POOL_ID`; dashboard `/register` (role cards → sign-up + email code → form), `/pending` (polls, picks up the new role on approval), `/admin/approvals` (table, drawer with map pin, approve / reject with reason, rail badge), Balers deactivate / reactivate.
+- **Verified:** `tests/test_registration.py` (validation, role gating, idempotent approve, reject reason, entity creation, duplicate warning, approved baler is bookable, deactivate, Cognito group + attribute via moto, Cognito failure → retry with the same id); Vitest pending guard; Playwright `e2e/register.spec.ts`.
+- **Deviations:** no map-pin picker in the applicant form (village centre is used; API accepts an optional pin); `SUSPENDED` status added for officer-deactivated accounts; deactivation covers balers (buyers have no `active` flag); no extra rate limit on `POST /api/register` beyond "one open application per user".
+- **Not yet done (needs deploy):** the Cognito path on the real stack (sign-up email, token refresh after approval) is covered by moto tests and code only.

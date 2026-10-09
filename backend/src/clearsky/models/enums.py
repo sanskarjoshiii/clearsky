@@ -18,6 +18,13 @@ class BookingStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class ApplicationStatus(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"  # approved earlier, later deactivated by the officer
+
+
 class RiskLevel(StrEnum):
     GREEN = "GREEN"
     YELLOW = "YELLOW"

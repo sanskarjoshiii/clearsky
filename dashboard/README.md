@@ -18,11 +18,15 @@ Three role apps, each with its own base path, layout, navigation and lazy-loaded
 | | `/buyer/deliveries` | Deliveries table + CSV export |
 | | `/buyer/demand` | Demand / price / radius form + change history |
 | | `/buyer/profile` | Plant details, sign out |
+| | `/admin/approvals` | Self-registered balers and buyers: table, drawer with map pin, **Approve** / **Reject (reason)**; "N pending" badge on the rail |
 | Public | `/impact`, `/login` | Live counters for the video; sign-in |
+| Registration | `/register` | Create an account: role cards → Cognito sign-up + email code → application form |
+| | `/pending` | Waiting room: under review / rejected with reason + resubmit; moves to the role app by itself on approval |
 
 **Routing rules** (`src/App.tsx`, `src/auth/RequireRole.tsx`, `homeFor` in `src/auth/AuthProvider.tsx`):
 - Signed out → `/login`, then back to the page that was asked for.
 - Signed in on another role's URL → your own home, with a notice ("That page is for buyers.").
+- Signed in but not approved yet (`pending`) → `/pending`; such a user can open only `/register` and `/pending`.
 - Each app has its own 404 inside its layout.
 - Old links still work: `/officer/*` → `/admin/*`, `/operator` → `/baler` (query strings such as `?as=` are kept).
 
