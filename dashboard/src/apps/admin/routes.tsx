@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router";
 import { useAuth } from "../../auth/AuthProvider";
 import { AppNotFound } from "../../components/NotFound";
 import { AdminLayout } from "./Layout";
+import { Approvals } from "./pages/Approvals";
 import { Demo } from "./pages/Demo";
 import { Radar } from "./pages/Radar";
 import { Balers, Bookings, Buyers, Fields } from "./pages/Tables";
@@ -17,6 +18,7 @@ export function Component() {
         <Route path="bookings" element={<Bookings />} />
         <Route path="balers" element={<Balers />} />
         <Route path="buyers" element={<Buyers />} />
+        <Route path="approvals" element={<Approvals />} />
         {me?.config.demo_mode ? <Route path="demo" element={<Demo />} /> : null}
         <Route path="*" element={<AppNotFound home="/admin" />} />
       </Route>

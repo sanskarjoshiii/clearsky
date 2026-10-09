@@ -68,6 +68,9 @@ class Settings(BaseSettings):
 
     # Dashboard / API
     dev_auth: bool = False  # NEVER true in a shared deployment: accepts unsigned role tokens
+    user_pool_id: str | None = (
+        None  # Cognito pool for approving self-registered users; None = no Cognito calls
+    )
     cors_origins: str = "*"
     route_calculator_name: str | None = None  # Amazon Location route calculator; None = straight lines
     alert_cooldown_minutes: int = 30

@@ -118,6 +118,28 @@ The API only returns bookings whose baler_id == the caller's custom:baler_id.
 Operators never receive WhatsApp messages.
 ```
 
+### 2.4b Self-registration and approval (balers and buyers)
+
+```
+Applicant opens /register → picks "Baler operator" or "Industry buyer"
+  → Cognito self sign-up (email + password) → 6-digit email code → signed in, no group = role `pending`
+  → POST /api/register (application form) → /pending (polls GET /api/register/me every 5 s)
+Officer opens /admin/approvals (rail badge shows "N pending") → drawer: every field, duplicate warning, map pin
+  Approve → 1. create the Baler / Buyer row under a new id (B11…, BY04…)
+            2. AdminUpdateUserAttributes: custom:baler_id / custom:buyer_id
+            3. AdminAddUserToGroup: operator / buyer
+            4. application → APPROVED
+  Reject  → application → REJECTED with a reason the applicant sees ("Edit and resubmit" = a new application)
+Applicant's /pending sees APPROVED → fetchAuthSession({ forceRefresh: true }) (new ID token with the group)
+  → lands on /baler or /buyer. No one has to contact them.
+```
+
+- A pending user can call only `/api/me`, `/api/register*` (everything else is 403) and can open only `/register` and `/pending`.
+- Every approval step is conditional on `status = PENDING`, so approving twice or approving after a reject returns 409. If Cognito fails midway the application stays `PENDING` with its `entity_id`; pressing Approve again finishes under the same id (rejecting a half-approved application is refused).
+- The officer can **deactivate** a baler (`POST /api/balers/{id}/active {active:false}`): `Baler.active=false` (no new bookings), the operator leaves the `operator` group and their application shows `SUSPENDED`; confirmed stops stay. Reactivating reverses it.
+- The list flags a **possible duplicate** when the phone or organisation name matches an existing baler/buyer (a warning, not a block).
+- Local dev (`DEV_AUTH`, no Cognito): the login picker has "New applicant"; `/register` creates a `dev.pending.<id>` identity; after approval the dashboard signs in as the application's `entity_id`, and the new baler/buyer also appears in `/api/dev/accounts`.
+
 ### 2.5 Buyer
 
 ```
@@ -199,7 +221,8 @@ Table names are prefixed with the stack name, e.g. `clearsky-dev-Fields`.
 | `Conversations` | `phone` | `ts` | – | role, text, TTL 7 days |
 | `ProcessedMessages` | `wa_message_id` | – | – | TTL 2 days (idempotency) |
 | `Alerts` | `alert_id` | – | `village-index` | officer_id, village_id, farmers_notified, balers_flagged[] (baler_ids shown the alert on their dashboard), status (OPEN/CLOSED), created_at |
-| `Settings` | `key` | – | – | e.g. `clock` → `{today: "2026-10-24"}` in demo mode |
+| `Applications` | `application_id` (`AP-…`) | – | `sub-index` (sub), `status-index` (status, created_at) | Self-registration requests: sub + username (Cognito), email (from the token), role (`operator`/`buyer`), status (`PENDING`/`APPROVED`/`REJECTED`/`SUSPENDED`), name, phone, org_name, village_id, lat, lng; baler fields (acres_per_day, radius_km, machine_details) or buyer fields (type, price_per_tonne, demand_tonnes, max_radius_km); audit (reviewed_by, reviewed_at, reject_reason, entity_id) |
+| `Settings` | `key` | – | – | e.g. `clock` → `{today: "2026-10-24"}` in demo mode; `demand_history#<buyer_id>` → a buyer's last 20 demand edits |
 
 ### 3.2 Key items
 
@@ -473,6 +496,13 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | GET | `/api/operator/me/history?from=&to=` | operator | DONE bookings (no phone numbers) + totals; default season start → today |
 | GET | `/api/buyers/me/demand/history` | buyer | Saved demand edits, newest first |
 | POST | `/api/bookings/{id}/done` | operator (own booking only) | Mark done |
+| GET | `/api/register/villages?q=` | any signed-in user | Village list for the application form; `q` = fuzzy search (same matcher as the farmer agent) |
+| POST | `/api/register` | `pending` only | Submit a baler/buyer application (Pydantic-validated); 409 if one is open or already approved |
+| GET | `/api/register/me` | any signed-in user | The caller's latest application + status (or `null`) |
+| GET | `/api/applications?status=` | officer | Applications, newest first, with `duplicates[]` and the `pending` count |
+| POST | `/api/applications/{id}/approve` | officer | Create the baler/buyer + Cognito group and attribute; conditional on `PENDING` (409 otherwise); returns the entity |
+| POST | `/api/applications/{id}/reject` `{reason}` | officer | Reason required (3–500 chars); 409 unless `PENDING` |
+| POST | `/api/balers/{id}/active` `{active}` | officer | Deactivate / reactivate a baler (and the operator's group) |
 | GET/PUT | `/api/demo/clock` | officer (demo mode only) | Get/set simulated today |
 | POST | `/api/demo/simulate` `{action}` | officer (demo mode) | e.g. `harvest_wave`, `run_risk`, `reset` |
 | GET | `/api/me` | any signed-in role | Principal + display name + runtime config (WA mode, demo mode, today) |
@@ -480,7 +510,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | POST | `/api/sim/message` `{phone, text \| button_id \| lat,lng}` | officer, `WA_MODE=simulator` only | Farmer simulator: runs the real processor path |
 | GET | `/api/sim/conversation?phone=`, `/api/sim/inbox` | officer, simulator only | Conversation turns; farmers who received proactive messages |
 | POST | `/api/sim/reset` `{phone}` | officer, simulator only | Clear one simulated conversation |
-| POST | `/api/dev/login`, GET `/api/dev/accounts` | **`DEV_AUTH=true` only** (local dev server) | Unsigned `dev.<role>.<id>` tokens for the role picker; 404 otherwise |
+| POST | `/api/dev/login`, GET `/api/dev/accounts` | **`DEV_AUTH=true` only** (local dev server) | Unsigned `dev.<role>.<id>` tokens for the role picker (roles: officer, buyer, operator, pending); 404 otherwise |
 
 `/api/operator/me` also returns `next_stop_date` (first confirmed stop ≥ today) so the operator can jump to it.
 
@@ -501,6 +531,9 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `/buyer`, `/buyer/deliveries`, `/buyer/demand`, `/buyer/profile` | buyer | Overview (KPIs + stacked bar of incoming tonnes per day) · deliveries table + CSV export · demand form + change history · profile |
 | `/baler` (was `/operator`), `/baler/schedule`, `/baler/history`, `/baler/profile` | operator | Simple and mobile-first: date switcher, ordered stop list (farmer, village, acres, call button), map with route, big "Done" buttons, "Available today" toggle + acres/day, banner for nearby village alerts |
 | `/impact` | public | Big animated counters, for the video |
+| `/register` | public, then `pending` | Role cards → Cognito sign-up + email code → application form (fuzzy village search, Hindi helper labels for balers) |
+| `/pending` | `pending` | Status card: under review / approved (auto-redirect) / rejected with reason + "Edit and resubmit" / deactivated |
+| `/admin/approvals` | officer | Applications table with filters; drawer with every field, duplicate warning, map pin, **Approve** / **Reject (reason)**; "N pending" badge on the rail |
 
 **Design:** green / amber / red risk palette, plus Hindi labels on key actions. Make sure it works on a phone screen.
 
@@ -517,6 +550,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 ## 11. Auth and Security
 
 - Cognito user pool with groups `officer`, `buyer`, `operator`. Custom attributes `custom:district` (officer), `custom:buyer_id` (buyer) and `custom:baler_id` (operator). The API checks group and scope in code (optionally via Cedar policies).
+- **Self sign-up is open** (`AllowAdminCreateUserOnly: false`, email verified by code). A signed-in user in no group is `pending` (`auth.from_claims`) and can reach only the registration endpoints. The role attributes are not client-writable (`WriteAttributes: [email]`), and the API reads `custom:*` only for the matching group, so a forged attribute grants nothing. Only the officer's approval (API → `AdminUpdateUserAttributes` + `AdminAddUserToGroup`, IAM scoped to this pool, `USER_POOL_ID` env) gives a role. `scripts/create_demo_users.py` still seeds demo accounts.
 - Operators sign in to the dashboard like other roles. They only ever see their own baler's bookings; they see farmer phone numbers only for their own stops (for the call button).
 - All secrets live in SSM Parameter Store (SecureString). Lambdas read them at cold start and cache them.
 - IAM uses least-privilege policies per function (SAM policy templates: `DynamoDBCrudPolicy`, `SQSSendMessagePolicy`, etc.).
@@ -575,6 +609,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `RISK_RED_AT`, `RISK_YELLOW_AT` | `60`, `40` | §6 |
 | `ALERT_COOLDOWN_MINUTES` | `30` | one alert per village per window |
 | `DEV_AUTH` | `false` | local dev server only; never in a shared stack |
+| `USER_POOL_ID` | from SAM (ApiFunction) | Cognito pool for approving registrations; unset = no Cognito calls (local dev) |
 | `CORS_ORIGINS` | `*` | set to the dashboard origin when deployed |
 | `ROUTE_CALCULATOR_NAME` | unset | Amazon Location route calculator; unset = straight lines |
 
@@ -610,6 +645,8 @@ Empty values in `.env` count as unset. `clock.today()` returns an in-process ove
 | Webhook | pytest | signature valid/invalid, verify challenge, dedupe |
 | E2E (dev stack) | `scripts/e2e.py` | send a fake webhook payload → booking exists → reply logged |
 | Manual | `scripts/chat_cli.py` | talk to the agent locally against the dev tables, or `--local` (in-process mock DynamoDB with the seed) |
+
+Registration tests (`tests/test_registration.py`) mock Cognito with moto (`cognito-idp`): group and attribute are set on approval, removed on deactivation, and a Cognito failure leaves the application pending.
 
 `make test` must pass before each phase is marked done. Agent tests use `tests/stub_model.py`, a scripted Strands model that emits Bedrock ConverseStream events, so the full Strands tool loop runs without calling Bedrock. `tests/test_template_schema.py` keeps `infra/template.yaml` and `repo/schema.py` identical.
 

@@ -3,6 +3,7 @@
 from clearsky.models.dynamo import from_item, to_item
 from clearsky.models.entities import (
     Alert,
+    Application,
     Baler,
     BalerDay,
     Booking,
@@ -12,10 +13,19 @@ from clearsky.models.entities import (
     Field,
     Village,
 )
-from clearsky.models.enums import BookingStatus, BuyerType, FieldStatus, Language, RiskLevel
+from clearsky.models.enums import (
+    ApplicationStatus,
+    BookingStatus,
+    BuyerType,
+    FieldStatus,
+    Language,
+    RiskLevel,
+)
 
 __all__ = [
     "Alert",
+    "Application",
+    "ApplicationStatus",
     "Baler",
     "BalerDay",
     "Booking",

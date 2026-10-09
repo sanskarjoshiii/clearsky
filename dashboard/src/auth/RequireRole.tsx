@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
-import type { Role } from "../api/types";
+import type { AppRole, Role } from "../api/types";
 import { Skeleton, useToast } from "../components/ui";
 import { APPS, homeFor, useAuth } from "./AuthProvider";
 
@@ -13,19 +13,21 @@ export function Loading() {
 }
 
 /** A signed-in user opened another role's URL: say so once, then send them to their own home. */
-function WrongApp({ own, wanted }: { own: Role; wanted: Role }) {
+function WrongApp({ own, wanted }: { own: Role; wanted: AppRole }) {
   const toast = useToast();
   useEffect(() => {
-    toast(`That page is for ${APPS[wanted].plural}.`);
-  }, [toast, wanted]);
+    // someone still waiting for approval gets the status page, which explains itself
+    if (own !== "pending") toast(`That page is for ${APPS[wanted].plural}.`);
+  }, [toast, own, wanted]);
   return <Navigate to={homeFor(own)} replace />;
 }
 
 /**
  * Gate for one role's app. Signed-out visitors go to the login page, which sends them back to the
- * URL they asked for (`state.from`); signed-in users of another role go to their own home.
+ * URL they asked for (`state.from`); signed-in users of another role go to their own home, and
+ * users who registered but are not approved yet go to `/pending`.
  */
-export function RequireRole({ role }: { role: Role }) {
+export function RequireRole({ role }: { role: AppRole }) {
   const { me, loading } = useAuth();
   const location = useLocation();
   if (loading) return <Loading />;

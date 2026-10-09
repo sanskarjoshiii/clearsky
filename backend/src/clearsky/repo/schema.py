@@ -65,6 +65,11 @@ TABLES: tuple[TableDef, ...] = (
     TableDef("Conversations", "phone", "ts", ttl_attribute="ttl"),
     TableDef("ProcessedMessages", "wa_message_id", ttl_attribute="ttl"),
     TableDef("Alerts", "alert_id", gsis=(Index("village-index", "village_id"),)),
+    TableDef(
+        "Applications",
+        "application_id",
+        gsis=(Index("sub-index", "sub"), Index("status-index", "status", "created_at")),
+    ),
     TableDef("Settings", "key"),
 )
 

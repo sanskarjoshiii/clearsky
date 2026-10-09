@@ -1,6 +1,7 @@
 """DynamoDB repositories, one class per table. Table names come from `settings.table_prefix`."""
 
 from clearsky.repo.alerts import AlertsRepo
+from clearsky.repo.applications import ApplicationsRepo
 from clearsky.repo.balers import BalerDaysRepo, BalersRepo
 from clearsky.repo.bookings import BookingsRepo
 from clearsky.repo.buyers import BuyersRepo
@@ -12,6 +13,7 @@ from clearsky.repo.villages import VillagesRepo
 
 __all__ = [
     "AlertsRepo",
+    "ApplicationsRepo",
     "BalerDaysRepo",
     "BalersRepo",
     "BookingsRepo",

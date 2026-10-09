@@ -54,6 +54,8 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "WA_APP_SECRET",
         "WA_VERIFY_TOKEN",
         "WA_PHONE_NUMBER_ID",
+        # a developer's own settings must not leak into tests
+        "USER_POOL_ID",
     ):
         monkeypatch.delenv(k, raising=False)
     # Never read a developer's real .env during tests.

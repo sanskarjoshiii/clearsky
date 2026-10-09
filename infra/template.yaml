@@ -107,8 +107,11 @@ Resources:
       UserPoolName: !Sub "${AWS::StackName}-users"
       UsernameAttributes: [email]
       AutoVerifiedAttributes: [email]
+      # Anyone may sign up and apply as a baler or buyer. A new user has no group, so the API treats
+      # them as `pending` until the officer approves (domain/registration.py). The role attributes
+      # stay non-writable by the client (see WriteAttributes below), so nobody can grant themselves a role.
       AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: true  # accounts are created by the team (scripts/create_demo_users.py)
+        AllowAdminCreateUserOnly: false
       Policies:
         PasswordPolicy:
           MinimumLength: 10
@@ -237,10 +240,20 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: clearsky.handlers.api.handler
-      Description: Dashboard REST API (officer, buyer, operator)
+      Description: Dashboard REST API (officer, buyer, operator, registration)
       MemorySize: 1024
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref UserPool
       Policies:
         - !Ref AppAccessPolicy
+        # approving a self-registered user: set their baler/buyer id and add them to the role group
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: [cognito-idp:AdminAddUserToGroup, cognito-idp:AdminRemoveUserFromGroup,
+                       cognito-idp:AdminUpdateUserAttributes]
+              Resource: !GetAtt UserPool.Arn
       Events:
         Stats:
           Type: HttpApi
@@ -587,6 +600,29 @@ Resources:
         - IndexName: village-index
           KeySchema:
             - { AttributeName: village_id, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+
+  ApplicationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Applications"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: application_id, AttributeType: S }
+        - { AttributeName: sub, AttributeType: S }
+        - { AttributeName: status, AttributeType: S }
+        - { AttributeName: created_at, AttributeType: S }
+      KeySchema:
+        - { AttributeName: application_id, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: sub-index
+          KeySchema:
+            - { AttributeName: sub, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+        - IndexName: status-index
+          KeySchema:
+            - { AttributeName: status, KeyType: HASH }
+            - { AttributeName: created_at, KeyType: RANGE }
           Projection: { ProjectionType: ALL }
 
   SettingsTable:
