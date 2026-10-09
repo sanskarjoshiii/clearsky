@@ -277,6 +277,20 @@ Resources:
           Properties:
             ScheduleExpression: rate(1 hour)
 
+  OffersJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: clearsky.handlers.offers_job.handler
+      Description: Every 15 minutes - offers a baler did not answer expire and go to the next baler
+      Timeout: 120
+      Policies:
+        - !Ref AppAccessPolicy
+      Events:
+        Every15Minutes:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(15 minutes)
+
   RemindersFunction:
     Type: AWS::Serverless::Function
     Properties:

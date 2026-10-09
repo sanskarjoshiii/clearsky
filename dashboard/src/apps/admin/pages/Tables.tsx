@@ -1,6 +1,6 @@
 import { CalendarCheck, Factory, Search, Table2, Tractor } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useBalers, useBookings, useBuyers, useFields, useSetBalerActive, useStats, useVillages } from "../../../api/hooks";
+import { useBalers, useBookings, useBuyers, useFields, useReassignOffer, useSetBalerActive, useStats, useVillages } from "../../../api/hooks";
 import type { Baler, BookingRow, Buyer, FieldRow } from "../../../api/types";
 import { DataTable } from "../../../components/DataTable";
 import { FieldDrawer } from "../../../components/FieldDrawer";
@@ -84,7 +84,11 @@ export function Fields() {
               { key: "acres", header: "Acres", align: "right", render: (f) => fmtNum(f.acres) },
               { key: "harvest", header: "Harvest", render: (f) => fmtDay(f.harvest_date) },
               { key: "sow", header: "Sow by", render: (f) => fmtDay(f.sowing_deadline) },
-              { key: "status", header: "Status", render: (f) => <StatusChip status={f.status} /> },
+              {
+                key: "status",
+                header: "Status",
+                render: (f) => (f.status === "BOOKED" && f.booking_state === "offered" ? <Chip>Offer sent</Chip> : <StatusChip status={f.status} />),
+              },
               { key: "risk", header: "Risk", render: (f) => <RiskPill level={f.risk_level} score={f.risk_score} /> },
               {
                 key: "source",
@@ -113,18 +117,36 @@ export function Fields() {
 
 // ------------------------------------------------------------------ bookings
 
+export const DECLINE_LABEL: Record<string, string> = {
+  machine_unavailable: "machine not available",
+  too_far: "too far",
+  day_full: "already full that day",
+  other: "other",
+  "reassigned by officer": "reassigned by admin",
+};
+
 export function Bookings() {
   const stats = useStats(false);
   const today = stats.data?.today;
   const [when, setWhen] = useState<"today" | "tomorrow" | "all">("tomorrow");
   const date = when === "all" || !today ? undefined : when === "today" ? today : addDays(today, 1);
   const bookings = useBookings(date);
-  const rows = (bookings.data ?? []).filter((b) => b.status !== "CANCELLED");
+  const reassign = useReassignOffer();
+  const toast = useToast();
+  const [show, setShow] = useState<"open" | "all">("open");
+  // "open" = work that is still going to happen; "all" adds declined / expired offers (the history)
+  const rows = (bookings.data ?? []).filter((b) =>
+    show === "open" ? b.status === "OFFERED" || b.status === "CONFIRMED" || b.status === "DONE" : b.status !== "CANCELLED",
+  );
+  const firm = rows.filter((b) => b.status === "CONFIRMED" || b.status === "DONE");
+  const waiting = rows.filter((b) => b.status === "OFFERED").length;
   return (
     <>
       <TopBar crumbs={[{ label: "Database", icon: CalendarCheck }, { label: "Bookings" }]} />
       <PageBody wide>
-        <PageTitle sub="Pickups booked by the matcher, ordered by day, baler and stop. Payouts are demo estimates.">Bookings</PageTitle>
+        <PageTitle sub="Pickups the matcher has offered to balers, ordered by day, baler and stop. A pickup is confirmed when the baler accepts; a declined or unanswered offer moves to the next baler. Payouts are demo estimates.">
+          Bookings
+        </PageTitle>
         <div className="flex flex-wrap items-center gap-3">
           <Segmented
             value={when}
@@ -135,8 +157,16 @@ export function Bookings() {
               { value: "all", label: "All" },
             ]}
           />
+          <Segmented
+            value={show}
+            onChange={setShow}
+            options={[
+              { value: "open", label: "Open" },
+              { value: "all", label: "With declined / expired" },
+            ]}
+          />
           <span className="ml-auto text-[13px] text-muted tabular">
-            {rows.length} pickups · {fmtNum(rows.reduce((a, b) => a + b.est_tonnes, 0))} t
+            {firm.length} confirmed · {fmtNum(firm.reduce((a, b) => a + b.est_tonnes, 0))} t{waiting ? ` · ${waiting} waiting for a baler` : ""}
           </span>
         </div>
         {bookings.error ? <ErrorNote error={bookings.error} onRetry={() => void bookings.refetch()} /> : null}
@@ -148,14 +178,45 @@ export function Bookings() {
             columns={[
               { key: "date", header: "Date", render: (b) => fmtDay(b.date) },
               { key: "baler", header: "Baler", render: (b) => <span className="font-medium">{b.operator_name}</span> },
-              { key: "stop", header: "Stop", align: "right", render: (b) => b.stop_order },
+              { key: "stop", header: "Stop", align: "right", render: (b) => (b.stop_order ? b.stop_order : <span className="text-faint">–</span>) },
               { key: "farmer", header: "Farmer", render: (b) => b.farmer_name ?? "–" },
               { key: "village", header: "Village", render: (b) => <Chip>{b.village_name ?? b.village_id}</Chip> },
               { key: "acres", header: "Acres", align: "right", render: (b) => fmtNum(b.acres) },
               { key: "t", header: "Tonnes", align: "right", render: (b) => fmtNum(b.est_tonnes) },
               { key: "buyer", header: "Straw to", render: (b) => b.buyer_name ?? <span className="text-faint">village storage</span> },
               { key: "pay", header: "Payout (demo)", align: "right", render: (b) => (b.farmer_payout > 0 ? fmtInr(b.farmer_payout) : "free") },
-              { key: "status", header: "Status", render: (b) => <StatusChip status={b.status} /> },
+              {
+                key: "status",
+                header: "Status",
+                render: (b) => (
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusChip status={b.status} />
+                    {b.attempt && b.attempt > 1 && b.status === "OFFERED" ? <span className="text-xs text-muted">baler {b.attempt}</span> : null}
+                    {b.status === "DECLINED" && b.decline_reason ? <span className="text-xs text-muted">{DECLINE_LABEL[b.decline_reason] ?? b.decline_reason}</span> : null}
+                  </span>
+                ),
+              },
+              {
+                key: "act",
+                header: "",
+                render: (b) =>
+                  b.status === "OFFERED" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Reassign ${b.farmer_name ?? b.booking_id}`}
+                      disabled={reassign.isPending}
+                      onClick={() =>
+                        reassign.mutate(b.booking_id, {
+                          onSuccess: (r) => toast(r.next?.kind === "booked" ? `Offered to ${r.next.operator_name ?? "the next baler"}.` : "No other baler is free: the field is on the radar."),
+                          onError: (e) => toast(e.message, "error"),
+                        })
+                      }
+                    >
+                      Reassign
+                    </Button>
+                  ) : null,
+              },
             ]}
           />
         </Card>

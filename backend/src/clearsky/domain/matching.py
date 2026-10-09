@@ -2,13 +2,17 @@
 
 Pure functions choose a baler-day and a buyer; `book_pickup` commits the choice with one DynamoDB
 transaction, so two concurrent requests can never over-book a baler-day or a buyer.
+
+A booking starts as an OFFER to the chosen baler (capacity is reserved at once). The baler accepts
+(`accept_offer` → CONFIRMED) or the offer ends (`release_offer` → DECLINED / EXPIRED, capacity
+released). `domain/offers.py` adds the farmer messages and the re-offer to the next baler.
 """
 
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Literal
 
 from pydantic import BaseModel
@@ -28,7 +32,7 @@ from clearsky.models import (
     FieldStatus,
     to_item,
 )
-from clearsky.models.enums import BOOKABLE_STATUSES
+from clearsky.models.enums import BOOKABLE_STATUSES, OPEN_BOOKING_STATUSES, REFUSED_BOOKING_STATUSES
 from clearsky.repo import BalerDaysRepo, BalersRepo, BookingsRepo, BuyersRepo, FieldsRepo
 from clearsky.repo.transactions import TransactionCancelled, TxBuilder
 
@@ -57,12 +61,23 @@ class Booked(BaseModel):
     farmer_payout: float
     free_clearance: bool
     already_booked: bool = False
+    # "offered": waiting for the baler to accept; nobody may tell the farmer it is confirmed yet
+    status: Literal["offered", "confirmed"] = "confirmed"
+    expires_at: datetime | None = None
+    attempt: int = 1
 
 
 class NoSlot(BaseModel):
     kind: Literal["no_slot"] = "no_slot"
     field_id: str
-    reason: Literal["not_found", "not_bookable", "deadline_too_close", "no_baler_capacity", "contention"]
+    reason: Literal[
+        "not_found",
+        "not_bookable",
+        "deadline_too_close",
+        "no_baler_capacity",
+        "contention",
+        "no_baler_accepted",
+    ]
     detail: str = ""
 
 
@@ -176,11 +191,17 @@ def nearest_neighbour_order(start: tuple[float, float], stops: list[Booking]) ->
 # -------------------------------------------------------------- data access
 
 
+def refused_balers(field_id: str) -> set[str]:
+    """Balers that declined this field or let its offer expire: they are never offered it again."""
+    return {b.baler_id for b in BookingsRepo().by_field(field_id) if b.status in REFUSED_BOOKING_STATUSES}
+
+
 def _load_candidates(field: Field, today: date) -> list[Candidate]:
     start, end = booking_window(field, today)
     if start > end:
         return []
-    balers = [b for b, _ in balers_in_range(field, BalersRepo().list_active())]
+    refused = refused_balers(field.field_id)
+    balers = [b for b, _ in balers_in_range(field, BalersRepo().list_active()) if b.baler_id not in refused]
     days_repo, bookings_repo = BalerDaysRepo(), BookingsRepo()
     ledger: dict[str, dict[date, BalerDay]] = {}
     village_days: dict[str, set[date]] = {}
@@ -188,8 +209,8 @@ def _load_candidates(field: Field, today: date) -> list[Candidate]:
         ledger[b.baler_id] = days_repo.range(b.baler_id, start, end)
         village_days[b.baler_id] = {
             bk.date
-            for bk in bookings_repo.confirmed_by_baler(b.baler_id, start, end)
-            if bk.village_id == field.village_id
+            for bk in bookings_repo.by_baler(b.baler_id, start, end)
+            if bk.village_id == field.village_id and bk.status in OPEN_BOOKING_STATUSES
         }
     return find_candidates(field, balers, ledger, village_days, today)
 
@@ -203,7 +224,7 @@ def _existing_booked(field: Field) -> Booked | None:
     if field.status != FieldStatus.BOOKED or not field.booking_id:
         return None
     bk = BookingsRepo().get(field.booking_id)
-    if bk is None or bk.status != BookingStatus.CONFIRMED:
+    if bk is None or bk.status not in OPEN_BOOKING_STATUSES:
         return None
     baler = BalersRepo().get(bk.baler_id)
     buyer = BuyersRepo().get(bk.buyer_id) if bk.buyer_id else None
@@ -226,15 +247,36 @@ def _to_booked(bk: Booking, baler: Baler | None, buyer: Buyer | None, already: b
         farmer_payout=bk.farmer_payout,
         free_clearance=bk.farmer_payout <= 0,
         already_booked=already,
+        status="offered" if bk.status == BookingStatus.OFFERED else "confirmed",
+        expires_at=bk.expires_at,
+        attempt=bk.attempt,
     )
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=clock.IST)
+
+
+def offer_expiry(day: date) -> datetime:
+    """An offer must be answered within the SLA, and in any case before its pickup day starts."""
+    sla = clock.now() + timedelta(minutes=get_settings().offer_sla_minutes)
+    return min(sla, datetime.combine(day, time.min, tzinfo=clock.IST))
 
 
 # ------------------------------------------------------------------ commands
 
 
-def book_pickup(field_id: str, today: date | None = None) -> BookingResult:
+def book_pickup(
+    field_id: str, today: date | None = None, *, auto_accept: bool | None = None, attempt: int = 1
+) -> BookingResult:
+    """Reserve the best baler-day for a field.
+
+    The booking is an OFFER the baler must accept, unless `auto_accept` (default: the
+    AUTO_ACCEPT_DEMO setting) confirms it at once. `attempt` counts the balers asked so far.
+    """
     today = today or clock.today()
     s = get_settings()
+    auto = s.auto_accept_demo if auto_accept is None else auto_accept
     fields = FieldsRepo()
     field = fields.get(field_id)
     if field is None:
@@ -259,7 +301,7 @@ def book_pickup(field_id: str, today: date | None = None) -> BookingResult:
         chosen = choose_buyer(field, tonnes, buyers)
         buyer, buyer_dist = chosen if chosen else (None, None)
         q = quote(field.acres, buyer.price_per_tonne if buyer else None, buyer_dist)
-        booking = _new_booking(field, cand, buyer, q)
+        booking = _new_booking(field, cand, buyer, q, offered=not auto, attempt=attempt)
         try:
             _commit(field, cand, buyer, booking)
         except TransactionCancelled as e:
@@ -274,17 +316,27 @@ def book_pickup(field_id: str, today: date | None = None) -> BookingResult:
             if idx == _TX_BUYER:
                 buyers = BuyersRepo().list_all()  # demand moved; re-choose on the next attempt
             continue
-        ordered = recompute_stop_order(cand.baler.baler_id, cand.day)
-        stop = next((b.stop_order for b in ordered if b.booking_id == booking.booking_id), 0)
-        booking = booking.model_copy(update={"stop_order": stop})
+        if auto:  # an offer joins the route (and gets its stop number) only when the baler accepts
+            ordered = recompute_stop_order(cand.baler.baler_id, cand.day)
+            stop = next((b.stop_order for b in ordered if b.booking_id == booking.booking_id), 0)
+            booking = booking.model_copy(update={"stop_order": stop})
         log.info(
-            "booked", extra={"field_id": field_id, "baler_id": cand.baler.baler_id, "date": str(cand.day)}
+            "booked" if auto else "offered",
+            extra={
+                "field_id": field_id,
+                "baler_id": cand.baler.baler_id,
+                "date": str(cand.day),
+                "attempt": attempt,
+            },
         )
         return _to_booked(booking, cand.baler, buyer)
     return NoSlot(field_id=field_id, reason="contention", detail="capacity taken during booking")
 
 
-def _new_booking(field: Field, cand: Candidate, buyer: Buyer | None, q: Quote) -> Booking:
+def _new_booking(
+    field: Field, cand: Candidate, buyer: Buyer | None, q: Quote, *, offered: bool = False, attempt: int = 1
+) -> Booking:
+    now = clock.now()
     return Booking(
         booking_id=f"BK-{uuid.uuid4().hex[:12]}",
         field_id=field.field_id,
@@ -299,8 +351,11 @@ def _new_booking(field: Field, cand: Candidate, buyer: Buyer | None, q: Quote) -
         lng=field.lng,
         buyer_price_per_tonne=buyer.price_per_tonne if buyer else None,
         farmer_payout=q.farmer_payout,
-        status=BookingStatus.CONFIRMED,
-        created_at=clock.now(),
+        status=BookingStatus.OFFERED if offered else BookingStatus.CONFIRMED,
+        created_at=now,
+        attempt=attempt,
+        offered_at=now if offered else None,
+        expires_at=offer_expiry(cand.day) if offered else None,
     )
 
 
@@ -326,11 +381,12 @@ def _commit(field: Field, cand: Candidate, buyer: Buyer | None, booking: Booking
     tx.update(
         "Fields",
         {"field_id": field.field_id},
-        "SET #s = :booked, booking_id = :bid, updated_at = :now, "
+        "SET #s = :booked, booking_id = :bid, booking_state = :state, updated_at = :now, "
         "risk_score = :zero, risk_level = :green, risk_reasons = :reasons",
         values={
             ":booked": FieldStatus.BOOKED.value,
             ":bid": booking.booking_id,
+            ":state": "offered" if booking.status == BookingStatus.OFFERED else "confirmed",
             ":now": clock.now().isoformat(),
             ":r": FieldStatus.REGISTERED.value,
             ":h": FieldStatus.HARVESTED.value,
@@ -374,27 +430,28 @@ def recompute_stop_order(baler_id: str, d: date) -> list[Booking]:
     return result
 
 
-def cancel_booking(booking_id: str, today: date | None = None) -> bool:
-    """Cancel a confirmed booking and release baler capacity and buyer reservation."""
-    today = today or clock.today()
-    bookings = BookingsRepo()
-    bk = bookings.get(booking_id)
-    if bk is None or bk.status != BookingStatus.CONFIRMED:
-        return False
+def _release(bk: Booking, outcome: BookingStatus, today: date, extra: dict[str, str] | None = None) -> bool:
+    """End an open booking without a pickup: free the baler-day and the buyer reservation, and put
+    the field back to unbooked. One transaction, conditional on the status we read, so a cancel, an
+    accept and an expiry racing each other have exactly one winner."""
     field = FieldsRepo().get(bk.field_id)
     if field is None:
         return False
     harvested = field.harvest_confirmed or today >= field.harvest_date
     new_status = FieldStatus.HARVESTED if harvested else FieldStatus.REGISTERED
+    now = clock.now().isoformat()
+    changes = {"status": outcome.value, "responded_at": now, **(extra or {})}
+    if outcome == BookingStatus.CANCELLED:
+        del changes["responded_at"]
 
     tx = TxBuilder()
     tx.update(
         "Bookings",
-        {"booking_id": booking_id},
-        "SET #s = :cancelled",
-        values={":cancelled": BookingStatus.CANCELLED.value, ":confirmed": BookingStatus.CONFIRMED.value},
-        names={"#s": "status"},
-        condition="#s = :confirmed",
+        {"booking_id": bk.booking_id},
+        "SET " + ", ".join(f"#{k} = :{k}" for k in changes),
+        values={f":{k}": v for k, v in changes.items()} | {":was": bk.status.value},
+        names={f"#{k}": k for k in changes},
+        condition="#status = :was",
     )
     tx.update(
         "BalerDays",
@@ -406,8 +463,8 @@ def cancel_booking(booking_id: str, today: date | None = None) -> bool:
     tx.update(
         "Fields",
         {"field_id": field.field_id},
-        "SET #s = :ns, updated_at = :now REMOVE booking_id",
-        values={":ns": new_status.value, ":now": clock.now().isoformat(), ":bid": booking_id},
+        "SET #s = :ns, updated_at = :now REMOVE booking_id, booking_state",
+        values={":ns": new_status.value, ":now": now, ":bid": bk.booking_id},
         names={"#s": "status"},
         condition="booking_id = :bid",
     )
@@ -422,13 +479,101 @@ def cancel_booking(booking_id: str, today: date | None = None) -> bool:
     try:
         tx.execute()
     except TransactionCancelled as e:
-        log.info("cancel conflict", extra={"booking_id": booking_id, "reasons": e.reasons})
+        log.info("release conflict", extra={"booking_id": bk.booking_id, "reasons": e.reasons})
         return False
-    recompute_stop_order(bk.baler_id, bk.date)
+    if bk.status == BookingStatus.CONFIRMED:
+        recompute_stop_order(bk.baler_id, bk.date)
     from clearsky.domain.risk import refresh_field
 
     refresh_field(bk.field_id, today)
     return True
+
+
+def cancel_booking(booking_id: str, today: date | None = None) -> bool:
+    """Cancel an open booking (an offer or a confirmed pickup) and release capacity and reservation."""
+    bk = BookingsRepo().get(booking_id)
+    if bk is None or bk.status not in OPEN_BOOKING_STATUSES:
+        return False
+    return _release(bk, BookingStatus.CANCELLED, today or clock.today())
+
+
+class OfferResult(BaseModel):
+    ok: bool
+    error: str | None = None  # not_found | forbidden | not_offered | expired
+    booking: Booking | None = None
+
+
+def _own_offer(booking_id: str, baler_id: str | None) -> OfferResult:
+    bk = BookingsRepo().get(booking_id)
+    if bk is None:
+        return OfferResult(ok=False, error="not_found")
+    if baler_id is not None and bk.baler_id != baler_id:
+        return OfferResult(ok=False, error="forbidden")
+    if bk.status != BookingStatus.OFFERED:
+        return OfferResult(ok=False, error="not_offered", booking=bk)
+    return OfferResult(ok=True, booking=bk)
+
+
+def accept_offer(booking_id: str, baler_id: str | None = None) -> OfferResult:
+    """The baler says yes: OFFERED → CONFIRMED, if the offer has not expired. The stop joins the route."""
+    found = _own_offer(booking_id, baler_id)
+    if not found.ok or found.booking is None:
+        return found
+    bk = found.booking
+    now = clock.now()
+    if bk.expires_at is not None and _aware(bk.expires_at) <= now:
+        return OfferResult(ok=False, error="expired", booking=bk)
+    tx = TxBuilder()
+    tx.update(
+        "Bookings",
+        {"booking_id": booking_id},
+        "SET #s = :confirmed, responded_at = :now",
+        values={
+            ":confirmed": BookingStatus.CONFIRMED.value,
+            ":offered": BookingStatus.OFFERED.value,
+            ":now": now.isoformat(),
+        },
+        names={"#s": "status"},
+        condition="#s = :offered AND (attribute_not_exists(expires_at) OR expires_at > :now)",
+    )
+    tx.update(
+        "Fields",
+        {"field_id": bk.field_id},
+        "SET booking_state = :state, updated_at = :now",
+        values={":state": "confirmed", ":now": now.isoformat(), ":bid": booking_id},
+        condition="booking_id = :bid",
+    )
+    try:
+        tx.execute()
+    except TransactionCancelled:
+        fresh = BookingsRepo().get(booking_id)
+        still_offered = fresh is not None and fresh.status == BookingStatus.OFFERED
+        return OfferResult(ok=False, error="expired" if still_offered else "not_offered", booking=fresh)
+    ordered = recompute_stop_order(bk.baler_id, bk.date)
+    stop = next((b.stop_order for b in ordered if b.booking_id == booking_id), 0)
+    confirmed = bk.model_copy(
+        update={"status": BookingStatus.CONFIRMED, "stop_order": stop, "responded_at": now}
+    )
+    return OfferResult(ok=True, booking=confirmed)
+
+
+def release_offer(
+    booking_id: str,
+    outcome: BookingStatus,
+    baler_id: str | None = None,
+    reason: str | None = None,
+    note: str | None = None,
+    today: date | None = None,
+) -> OfferResult:
+    """An offer ends without a pickup: the baler declined (`DECLINED`) or did not answer (`EXPIRED`)."""
+    found = _own_offer(booking_id, baler_id)
+    if not found.ok or found.booking is None:
+        return found
+    bk = found.booking
+    extra = {k: v for k, v in (("decline_reason", reason), ("decline_note", note)) if v}
+    if not _release(bk, outcome, today or clock.today(), extra):
+        return OfferResult(ok=False, error="not_offered", booking=BookingsRepo().get(booking_id))
+    return OfferResult(ok=True, booking=bk.model_copy(update={"status": outcome, **extra}))
 
 
 class DoneResult(BaseModel):
@@ -462,7 +607,8 @@ def mark_done(booking_id: str, baler_id: str | None = None) -> DoneResult:
     tx.update(
         "Fields",
         {"field_id": bk.field_id},
-        "SET #s = :cleared, updated_at = :now, risk_score = :zero, risk_level = :green, risk_reasons = :reasons",
+        "SET #s = :cleared, updated_at = :now, risk_score = :zero, risk_level = :green, "
+        "risk_reasons = :reasons REMOVE booking_state",
         values={
             ":cleared": FieldStatus.CLEARED.value,
             ":now": now,

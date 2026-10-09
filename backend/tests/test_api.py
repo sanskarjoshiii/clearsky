@@ -212,7 +212,7 @@ def test_simulator_end_to_end(api: None) -> None:
         {"phone": phone, "text": "Naam Gurpreet, Bhawanigarh, 8 acre, 24 tareekh"},
         token=OFFICER,
     )[1]
-    assert body["sent"][0].startswith("✅ Gurpreet ji")
+    assert body["sent"][0].startswith("📨 Gurpreet ji")
     convo = call("GET", "/api/sim/conversation", token=OFFICER, query={"phone": phone})[1]["turns"]
     assert [t["role"] for t in convo] == ["user", "assistant", "user", "assistant"]
     assert call("POST", "/api/sim/message", {"phone": "12345", "text": "x"}, token=OFFICER)[0] == 400

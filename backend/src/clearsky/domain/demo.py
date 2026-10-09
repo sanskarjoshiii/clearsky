@@ -106,6 +106,10 @@ def simulate(action: str, village_id: str | None = None, n: int = 5) -> dict[str
         from clearsky.handlers.reminders import run
 
         return run(force=True)
+    if action == "run_offers":
+        from clearsky.domain import offers
+
+        return offers.expire_due()
     if action == "reset":
         return reset()
     raise DemoError(f"unknown action {action!r}")

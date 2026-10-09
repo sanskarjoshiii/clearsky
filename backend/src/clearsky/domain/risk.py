@@ -38,7 +38,10 @@ def level_for(score: int) -> RiskLevel:
     return RiskLevel.GREEN
 
 
-def score_field(field: Field, fire_history: float, today: date, slot_available: bool) -> RiskResult:
+def score_field(
+    field: Field, fire_history: float, today: date, slot_available: bool, refused: int = 0
+) -> RiskResult:
+    """`refused` = how many balers declined this field or let its offer expire."""
     if field.status == FieldStatus.BOOKED:
         return RiskResult(score=0, level=RiskLevel.GREEN, reasons=["booked"])
     if field.status == FieldStatus.CLEARED:
@@ -63,8 +66,12 @@ def score_field(field: Field, fire_history: float, today: date, slot_available: 
     reasons.append(f"{days_left} days to sowing" if days_left >= 0 else "sowing deadline passed")
     if history >= HIGH_HISTORY:
         reasons.append("high fire history")
-    if not slot_available:
+    if refused and not slot_available:
+        reasons.append("no baler accepted")
+    elif not slot_available:
         reasons.append("no baler free")
+    elif refused:
+        reasons.append(f"declined by {refused} baler{'s' if refused != 1 else ''}")
     reasons.append("not booked")
     return RiskResult(score=score, level=level_for(score), reasons=reasons)
 
@@ -82,7 +89,7 @@ def _apply(field: Field, result: RiskResult) -> None:
 
 def refresh_field(field_id: str, today: date | None = None) -> RiskResult | None:
     """Recompute one field's risk now (after booking, cancel, harvest confirmation)."""
-    from clearsky.domain.matching import has_capacity_before_deadline
+    from clearsky.domain.matching import has_capacity_before_deadline, refused_balers
 
     today = today or clock.today()
     field = FieldsRepo().get(field_id)
@@ -91,7 +98,8 @@ def refresh_field(field_id: str, today: date | None = None) -> RiskResult | None
     village = VillagesRepo().get(field.village_id)
     open_ = field.status in (FieldStatus.REGISTERED, FieldStatus.HARVESTED)
     slot = has_capacity_before_deadline(field, today) if open_ else True
-    result = score_field(field, village.fire_history_score if village else 0.0, today, slot)
+    refused = len(refused_balers(field_id)) if open_ else 0
+    result = score_field(field, village.fire_history_score if village else 0.0, today, slot, refused)
     _apply(field, result)
     refresh_village(field.village_id)
     return result
@@ -132,17 +140,25 @@ def refresh_village(village_id: str) -> None:
 def run_all(today: date | None = None) -> dict[str, int]:
     """The hourly job: score every field, then every village aggregate."""
     from clearsky.domain.matching import has_capacity_before_deadline
+    from clearsky.models.enums import REFUSED_BOOKING_STATUSES
+    from clearsky.repo import BookingsRepo
 
     today = today or clock.today()
     villages = VillagesRepo().list_all()
     history = {v.village_id: v.fire_history_score for v in villages}
     fields = FieldsRepo().list_all()
+    refused: dict[str, set[str]] = {}
+    for bk in BookingsRepo().list_all():
+        if bk.status in REFUSED_BOOKING_STATUSES:
+            refused.setdefault(bk.field_id, set()).add(bk.baler_id)
     updated: list[Field] = []
     counts = {"fields": 0, "red": 0, "yellow": 0, "green": 0}
     for f in fields:
         open_ = f.status in (FieldStatus.REGISTERED, FieldStatus.HARVESTED)
         slot = has_capacity_before_deadline(f, today) if open_ else True
-        r = score_field(f, history.get(f.village_id, 0.0), today, slot)
+        r = score_field(
+            f, history.get(f.village_id, 0.0), today, slot, len(refused.get(f.field_id, ())) if open_ else 0
+        )
         if (r.score, r.level, r.reasons) != (f.risk_score, f.risk_level, f.risk_reasons):
             _apply(f, r)
         updated.append(

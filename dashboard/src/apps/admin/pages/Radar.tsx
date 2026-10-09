@@ -132,8 +132,9 @@ export function Radar() {
                 label: "Acres booked",
                 value: fmtInt(s.acres_booked),
                 badge: bookedPct != null ? <span className="rounded-full border border-ok-line bg-ok-soft px-1.5 text-[11px] text-ok">{bookedPct}%</span> : null,
-                hint: `${s.bookings} bookings`,
+                hint: `${s.bookings} confirmed pickups`,
               },
+              { label: "Offers waiting", value: s.offers_waiting, hint: `${fmtInt(s.acres_offered)} acres with balers` },
               { label: "Acres cleared", value: fmtInt(s.acres_cleared), hint: `${s.bookings_done} pickups done` },
               {
                 label: "Red fields",

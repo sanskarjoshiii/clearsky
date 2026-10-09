@@ -18,6 +18,7 @@ from clearsky.domain import matching, risk
 from clearsky.domain.geo import jitter_point
 from clearsky.domain.villages import resolve
 from clearsky.models import BookingStatus, Farmer, Field, FieldStatus, Language
+from clearsky.models.enums import OPEN_BOOKING_STATUSES, REFUSED_BOOKING_STATUSES
 from clearsky.repo import BookingsRepo, FarmersRepo, FieldsRepo, VillagesRepo
 
 MIN_ACRES, MAX_ACRES = 0.5, 100.0
@@ -66,8 +67,14 @@ def _booking_view(result: matching.BookingResult) -> Result:
             "field_id": result.field_id,
             "message": _NO_SLOT_MESSAGES.get(result.reason, result.reason),
         }
+    offered = result.status == "offered"
     return {
         "ok": True,
+        # "offered": the request is with the baler and NOT confirmed yet. The farmer gets a separate
+        # WhatsApp message when the baler accepts; never say the pickup is confirmed before that.
+        "status": result.status,
+        "confirmed": not offered,
+        "next_step": "Baler must accept. Tell the farmer you will confirm soon." if offered else "Confirmed.",
         "booking_id": result.booking_id,
         "field_id": result.field_id,
         "pickup_date": result.date.isoformat(),
@@ -89,6 +96,7 @@ _NO_SLOT_MESSAGES = {
     "deadline_too_close": "The sowing deadline is too close to schedule a baler.",
     "no_baler_capacity": "No baler is free before the sowing deadline. An officer will follow up.",
     "contention": "Balers filled up while booking. Please try again.",
+    "no_baler_accepted": "No baler has accepted yet. An officer will follow up.",
 }
 
 
@@ -225,14 +233,15 @@ def get_my_bookings(phone: str) -> Result:
     out = []
     for f in FieldsRepo().by_farmer(phone):
         for bk in repo.by_field(f.field_id):
-            if bk.status == BookingStatus.CANCELLED:
+            if bk.status == BookingStatus.CANCELLED or bk.status in REFUSED_BOOKING_STATUSES:
                 continue
             out.append(
                 {
                     "booking_id": bk.booking_id,
                     "field_id": bk.field_id,
                     "pickup_date": bk.date.isoformat(),
-                    "status": bk.status.value,
+                    "status": bk.status.value,  # OFFERED = waiting for the baler, not confirmed yet
+                    "confirmed": bk.status != BookingStatus.OFFERED,
                     "acres": bk.acres,
                     "farmer_payout_inr": bk.farmer_payout,
                     "free_clearance": bk.farmer_payout <= 0,
@@ -275,7 +284,7 @@ def cancel_booking(phone: str, booking_id: str) -> Result:
     bk = BookingsRepo().get(booking_id)
     if bk is None or bk.phone != phone:
         return _err("booking_not_found", "No such booking for this farmer.")
-    if bk.status != BookingStatus.CONFIRMED:
+    if bk.status not in OPEN_BOOKING_STATUSES:
         return _err("not_cancellable", f"Booking is {bk.status.value}.")
     ok = matching.cancel_booking(booking_id)
     return {"ok": ok} if ok else _err("cancel_failed", "Could not cancel right now. Try again.")

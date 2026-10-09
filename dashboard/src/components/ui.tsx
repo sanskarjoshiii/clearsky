@@ -110,9 +110,12 @@ const STATUS_LABEL: Record<FieldStatus | BookingStatus, string> = {
   BOOKED: "Booked",
   CLEARED: "Cleared",
   FIRE_REPORTED: "Fire reported",
+  OFFERED: "Offered",
   CONFIRMED: "Confirmed",
   DONE: "Done",
   CANCELLED: "Cancelled",
+  DECLINED: "Declined",
+  EXPIRED: "Expired",
 };
 
 export function StatusChip({ status }: { status: FieldStatus | BookingStatus }) {

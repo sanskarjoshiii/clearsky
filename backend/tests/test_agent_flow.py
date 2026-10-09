@@ -39,7 +39,11 @@ def _booking_script() -> list[Any]:
 
     def confirm(msgs: list[dict[str, Any]]) -> dict[str, Any]:
         r = last_tool_result(msgs)
-        return say(f"Gurpreet ji, aapka khet {r['pickup_date']} ko saaf hoga. Koi kharcha nahi.")
+        # what a model following the prompt says for status "offered": sent, not confirmed
+        assert r["status"] == "offered" and r["confirmed"] is False
+        return say(
+            f"Gurpreet ji, {r['pickup_date']} ke liye request baler ko bhej di hai. Confirm hote hi batayenge."
+        )
 
     return [
         call("get_my_profile"),
@@ -58,6 +62,7 @@ def test_full_booking_in_one_turn(seeded: None) -> None:
     assert reply.error is None
     assert "2026-10-25" in reply.text
     assert reply.booking is not None and reply.booking["pickup_date"] == "2026-10-25"
+    assert reply.booking["status"] == "offered"
     assert [c.name for c in reply.tool_calls] == [
         "get_my_profile",
         "resolve_village",
@@ -98,7 +103,7 @@ def test_off_topic_reply_makes_no_tool_calls(seeded: None) -> None:
 def test_model_failure_falls_back_to_rules_bot(seeded: None) -> None:
     reply = run_turn(PHONE, MSG, model=FailingModel())
     assert reply.error == "RuntimeError"
-    assert reply.text.startswith("✅") and reply.booking is not None  # rules bot still booked it
+    assert reply.text.startswith("📨") and reply.booking is not None  # rules bot still sent the request
     assert reply.text != FALLBACK_REPLY
     assert [t.role for t in ConversationsRepo().last(PHONE, 10)] == ["user", "assistant"]
 
@@ -146,5 +151,12 @@ def test_to_messages_alternates_and_starts_with_user() -> None:
 def test_system_prompt_rules() -> None:
     p = farmer_system(TODAY)
     assert "2026-10-20 (Tuesday)" in p
-    for rule in ("ONLY talk to farmers", "book_pickup", "Never invent", "40 words", "Off-topic"):
+    for rule in (
+        "ONLY talk to farmers",
+        "book_pickup",
+        "Never invent",
+        "40 words",
+        "Off-topic",
+        "NEVER say the pickup is confirmed",
+    ):
         assert rule in p

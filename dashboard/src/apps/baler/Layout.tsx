@@ -1,4 +1,4 @@
-import { CalendarDays, History, Route as RouteIcon, UserRound, type LucideIcon } from "lucide-react";
+import { CalendarDays, History, Inbox, Route as RouteIcon, UserRound, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router";
 import { useOperatorMe } from "../../api/hooks";
@@ -16,6 +16,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { to: "/baler", label: "Today", hi: "आज", icon: RouteIcon, end: true },
+  { to: "/baler/requests", label: "Requests", hi: "नए काम", icon: Inbox },
   { to: "/baler/schedule", label: "Schedule", hi: "आगे", icon: CalendarDays },
   { to: "/baler/history", label: "History", hi: "पूरे हुए", icon: History },
   { to: "/baler/profile", label: "Profile", hi: "प्रोफ़ाइल", icon: UserRound },
@@ -26,6 +27,7 @@ function TabLink({ tab, compact }: { tab: Tab; compact?: boolean }) {
     <NavLink
       to={tab.to}
       end={tab.end}
+      aria-label={tab.badge ? `${tab.label} (${tab.badge})` : tab.label}
       className={({ isActive }) =>
         compact
           ? cx("flex h-9 items-center gap-2 rounded-[var(--radius-control)] px-3 text-sm font-medium", isActive ? "bg-sunken text-ink" : "text-muted hover:text-ink")
@@ -53,6 +55,7 @@ function TabLink({ tab, compact }: { tab: Tab; compact?: boolean }) {
 export function BalerLayout() {
   const me = useOperatorMe();
   const baler = me.data;
+  const tabs = TABS.map((t) => (t.to === "/baler/requests" ? { ...t, badge: baler?.open_requests || undefined } : t));
   return (
     <div className="flex h-dvh w-full flex-col bg-frame">
       <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-line bg-canvas px-4">
@@ -67,7 +70,7 @@ export function BalerLayout() {
           ) : null}
         </div>
         <nav className="ml-auto hidden items-center gap-1 md:flex" aria-label="Baler">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <TabLink key={t.to} tab={t} compact />
           ))}
         </nav>
@@ -76,7 +79,7 @@ export function BalerLayout() {
         <Outlet />
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-line bg-canvas md:hidden" aria-label="Baler">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <TabLink key={t.to} tab={t} />
         ))}
       </nav>

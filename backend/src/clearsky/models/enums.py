@@ -13,9 +13,20 @@ BOOKABLE_STATUSES = (FieldStatus.REGISTERED, FieldStatus.HARVESTED)
 
 
 class BookingStatus(StrEnum):
+    OFFERED = "OFFERED"  # sent to a baler, waiting for accept / decline (capacity already reserved)
     CONFIRMED = "CONFIRMED"
     DONE = "DONE"
     CANCELLED = "CANCELLED"
+    DECLINED = "DECLINED"  # the baler said no → the matcher offers the field to the next baler
+    EXPIRED = "EXPIRED"  # the baler did not answer in time → re-offered
+
+
+# A pickup that will happen or has happened: what routes, stats and buyer supply count.
+FIRM_BOOKING_STATUSES = (BookingStatus.CONFIRMED, BookingStatus.DONE)
+# Holds baler capacity and the field: an open offer or a confirmed pickup.
+OPEN_BOOKING_STATUSES = (BookingStatus.OFFERED, BookingStatus.CONFIRMED)
+# An offer that ended without a pickup. That baler is never offered the same field again.
+REFUSED_BOOKING_STATUSES = (BookingStatus.DECLINED, BookingStatus.EXPIRED)
 
 
 class ApplicationStatus(StrEnum):

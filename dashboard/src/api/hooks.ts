@@ -16,6 +16,7 @@ import type {
   FieldDetail,
   FieldRow,
   Layer,
+  OfferRequests,
   Route,
   ScheduleDay,
   Stats,
@@ -168,7 +169,45 @@ export const useDemandHistory = () =>
 
 // ---------------------------------------------------------------- operator
 export const useOperatorMe = () =>
-  useQuery({ queryKey: ["operator", "me"], queryFn: async () => (await api<{ baler: Baler }>("/api/operator/me")).baler });
+  useQuery({
+    queryKey: ["operator", "me"],
+    queryFn: async () => (await api<{ baler: Baler }>("/api/operator/me")).baler,
+    refetchInterval: LIVE, // the Requests badge must notice new offers by itself
+  });
+
+export const useRequests = () =>
+  useQuery({ queryKey: ["operator", "requests"], queryFn: () => api<OfferRequests>("/api/operator/me/requests"), refetchInterval: LIVE });
+
+export function useAcceptOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (bookingId: string) => api<{ ok: boolean }>(`/api/bookings/${bookingId}/accept`, { method: "POST" }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["operator"] }),
+  });
+}
+
+export function useDeclineOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; reason: string; note?: string }) =>
+      api<{ ok: boolean }>(`/api/bookings/${v.id}/decline`, { method: "POST", body: { reason: v.reason, note: v.note } }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["operator"] }),
+  });
+}
+
+/** Admin: move an unanswered offer to the next baler without waiting. */
+export function useReassignOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (bookingId: string) => api<{ ok: boolean; next: { operator_name?: string; kind: string } | null }>(`/api/bookings/${bookingId}/reassign`, { method: "POST" }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["bookings"] });
+      void qc.invalidateQueries({ queryKey: ["field"] });
+      void qc.invalidateQueries({ queryKey: ["fields"] });
+      void qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+  });
+}
 
 export const useRoute = (date: string) =>
   useQuery({

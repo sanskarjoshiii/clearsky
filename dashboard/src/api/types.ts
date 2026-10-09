@@ -9,7 +9,8 @@ export type Role = AppRole | "pending";
 export type ApplicationStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 export type RiskLevel = "GREEN" | "YELLOW" | "RED";
 export type FieldStatus = "REGISTERED" | "HARVESTED" | "BOOKED" | "CLEARED" | "FIRE_REPORTED";
-export type BookingStatus = "CONFIRMED" | "DONE" | "CANCELLED";
+/** OFFERED = sent to a baler, waiting for accept/decline. DECLINED / EXPIRED = that offer ended and the field went to the next baler. */
+export type BookingStatus = "OFFERED" | "CONFIRMED" | "DONE" | "CANCELLED" | "DECLINED" | "EXPIRED";
 
 export interface Me {
   sub: string;
@@ -56,6 +57,8 @@ export interface FieldRow {
   harvest_confirmed: boolean;
   status: FieldStatus;
   booking_id: string | null;
+  /** While status is BOOKED: "offered" until a baler accepts, then "confirmed". */
+  booking_state?: "offered" | "confirmed" | null;
   risk_score: number;
   risk_level: RiskLevel;
   risk_reasons: string[];
@@ -82,6 +85,12 @@ export interface BookingRow {
   status: BookingStatus;
   created_at: string;
   done_at?: string | null;
+  attempt?: number;
+  offered_at?: string | null;
+  expires_at?: string | null;
+  responded_at?: string | null;
+  decline_reason?: string | null;
+  decline_note?: string | null;
   farmer_name?: string | null;
   farmer_phone?: string;
   operator_name?: string | null;
@@ -123,6 +132,31 @@ export interface Baler {
   week?: { date: string; booked_acres: number }[];
   upcoming_stops?: number;
   next_stop_date?: string | null;
+  open_requests?: number;
+}
+
+/** An open offer on a baler's Requests tab. */
+export interface OfferRequest {
+  booking_id: string;
+  field_id: string;
+  date: string;
+  harvest_date: string | null;
+  acres: number;
+  est_tonnes: number;
+  lat: number;
+  lng: number;
+  farmer_name: string | null;
+  village_name: string;
+  distance_km: number;
+  offered_at: string | null;
+  expires_at: string | null;
+  attempt: number;
+}
+
+export interface OfferRequests {
+  requests: OfferRequest[];
+  now: string;
+  reasons: { value: string; label: string }[];
 }
 
 export interface Buyer {
@@ -220,6 +254,8 @@ export interface Stats {
   payouts_estimated_inr: number;
   bookings: number;
   bookings_done: number;
+  offers_waiting: number;
+  acres_offered: number;
   red_fields: number;
   yellow_fields: number;
   fields_saved_after_alert: number;

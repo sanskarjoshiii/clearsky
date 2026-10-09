@@ -13,6 +13,7 @@ This is the technical source of truth. If `PLAN.md` and this file disagree, **th
 | `api` | Lambda (API GW, JWT) | REST for dashboard: fields, risk, alerts, buyers, operator dashboard (stops, done, profile), stats, demo clock |
 | `risk_job` | Lambda (Scheduler, hourly) | Recompute field and village risk scores |
 | `reminders` | Lambda (Scheduler, daily 18:00 IST) | Farmer harvest confirmations and pickup notices (WhatsApp) |
+| `offers_job` | Lambda (Scheduler, every 15 min) | Offers a baler did not answer in time expire and go to the next baler |
 | `firms_ingest` | Lambda / script | Pull NASA FIRMS fire points → GeoJSON in S3 → village fire-history scores |
 | `ndvi_harvest` | Script (stretch) | Sentinel-2 NDVI change → harvested grid GeoJSON in S3 |
 | Dashboard | React SPA (Amplify) | Officer radar, buyer view, operator dashboard, impact page |
@@ -64,10 +65,11 @@ sequenceDiagram
   A->>D: register_farmer + register_field(8, 2026-10-24, V012)
   A->>M: book_pickup(field_id)
   M->>D: TransactWrite(capacity, booking, field, buyer)
-  M-->>A: {date: 10-25, baler: B03, buyer: BY01, payout: ₹…}
-  A-->>P: confirmation text
+  M-->>A: {status: offered, date: 10-25, baler: B03, buyer: BY01, payout: ₹…}
+  A-->>P: "request sent" text (not a confirmation)
   P->>WA: text reply (+ Polly voice if inbound was voice)
-  WA->>F: "25 Oct ko khet saaf hoga…"
+  WA->>F: "📨 25 Oct ke liye request baler ko bhej di hai…"
+  Note over M,D: baler B03 accepts on /baler/requests → CONFIRMED → farmer gets "✅ … baler aayega"
 ```
 
 ### 2.2 Voice pipeline
@@ -111,6 +113,11 @@ Operator signs in on the dashboard (Cognito group: operator, custom:baler_id) �
   GET  /api/operator/me/alerts          → open village alerts within this baler's radius
   GET  /api/operator/me/schedule?days=  → stops + booked acres per day (default 14 days)
   GET  /api/operator/me/history?from&to → cleared fields (DONE bookings) + totals
+  GET  /api/operator/me/requests        → open offers (farmer, village, acres, day, distance, expiry)
+  POST /api/bookings/{id}/accept        → OFFERED → CONFIRMED, stop joins the route,
+                                          farmer gets WhatsApp "✅ … baler aayega"
+  POST /api/bookings/{id}/decline       → {reason, note?} → DECLINED, capacity released,
+                                          next-best baler gets the offer
   POST /api/bookings/{id}/done          → booking.status=DONE, field.status=CLEARED,
                                           buyer.received_tonnes += est_tonnes,
                                           farmer gets WhatsApp "Khet saaf ho gaya ✅"
@@ -258,9 +265,13 @@ Field coordinates are the village centroid plus a small random offset, since far
   "buyer_price_per_tonne": 1800,
   "farmer_payout": 0,
   "status": "CONFIRMED",
-  "created_at": "…"
+  "created_at": "…",
+  "attempt": 1,
+  "offered_at": "…", "expires_at": "…", "responded_at": "…",
+  "decline_reason": null, "decline_note": null
 }
 ```
+`Field` also carries `booking_state` (`offered` | `confirmed`) while its status is `BOOKED`.
 
 ### 3.3 State machines
 
@@ -274,7 +285,18 @@ BOOKED     ──(cancelled)─────────────────�
 any non-CLEARED ──(FIRMS point ≤ 500 m after harvest / officer mark)──► FIRE_REPORTED
 ```
 
-**Booking.status:** `CONFIRMED → DONE` or `CONFIRMED → CANCELLED`
+**Booking.status** (issue #3: balers accept or decline)
+```
+OFFERED ──accept──► CONFIRMED ──done──► DONE
+   │                    └──cancel──► CANCELLED
+   ├──cancel (farmer)──► CANCELLED
+   ├──decline──► DECLINED   (→ the matcher offers the field to the next baler)
+   └──timeout──► EXPIRED    (→ the matcher offers the field to the next baler)
+```
+- `Field.status` is `BOOKED` while an offer is open (so the radar shows it as handled and it can't be offered twice); `Field.booking_state` says `offered` or `confirmed`.
+- Capacity (`BalerDays.booked_acres`) and the buyer reservation are taken **at offer time** and released on decline, expiry or cancel, all in one conditional transaction, so an accept, an expiry and a cancel racing each other have exactly one winner.
+- A baler who declined a field or let its offer expire is never offered that field again. This is derived from the field's `DECLINED` / `EXPIRED` bookings (`matching.refused_balers`), not stored on the field.
+- Seed pre-bookings are created `CONFIRMED` (`book_pickup(..., auto_accept=True)`).
 
 ---
 
@@ -329,6 +351,25 @@ Rules added during the build:
 
 Defaults (in `config.py`, all overridable): `W_DIST=1.0`, `W_DELAY=2.0`, `W_CLUSTER=5.0`, `SOWING_BUFFER_DAYS=2`, `MATCHER_MAX_ATTEMPTS=3`.
 
+### 4.1 Offers: the baler says yes or no (`domain/matching.py`, `domain/offers.py`)
+
+`book_pickup` commits the same transaction as above, but the booking is written as **`OFFERED`** with `offered_at`, `expires_at` and `attempt`, and the field gets `booking_state = offered`. Then:
+
+| Event | Function | Effect |
+|---|---|---|
+| Baler taps Accept | `offers.accept` → `matching.accept_offer` | Conditional `status = OFFERED AND expires_at > now` → `CONFIRMED`; field `booking_state = confirmed`; stop order recomputed; farmer gets `booking_confirmed` |
+| Baler taps Decline (reason) | `offers.decline` → `matching.release_offer(DECLINED)` | Capacity and buyer reservation released, field back to unbooked, then re-offer |
+| No answer for `OFFER_SLA_MINUTES` | `offers_job` → `offers.expire_due` | Same as decline with status `EXPIRED` |
+| Baler goes off duty / officer deactivates | `offers.expire_for_baler` | Their open offers expire at once |
+| Officer presses Reassign | `offers.reassign` | The offer expires and moves on without waiting |
+| Farmer cancels or changes the date | `matching.cancel_booking` / `reschedule` | Works on `OFFERED` as on `CONFIRMED` |
+
+**Re-offer** (`offers._reoffer`): `book_pickup(field, attempt + 1)`, with the balers that refused excluded from the candidates. A new date → the farmer gets `booking_changed`. When `attempt` would exceed `OFFER_MAX_ATTEMPTS`, or no baler is left, the field is **escalated**: it is unbooked again, its risk reasons say `no baler accepted` (or `declined by N balers` if another baler is still free), and the farmer gets `booking_delayed` ("an officer will follow up").
+
+`expires_at = min(now + OFFER_SLA_MINUTES, 00:00 on the pickup day)`, so an offer close to its pickup day gets a shorter window. Open offers count for the village-cluster bonus but never appear on a route, in the schedule, in stats (`bookings`, `acres_booked`, `tonnes_booked`) or in buyer supply; `GET /api/stats` reports them separately as `offers_waiting` / `acres_offered`.
+
+Settings: `OFFER_SLA_MINUTES=120`, `OFFER_MAX_ATTEMPTS=3`, `AUTO_ACCEPT_DEMO=false` (`true` = confirm instantly, the pre-offer behaviour, for recordings without a baler step).
+
 **Stop order:** after commit, recompute `stop_order` for that baler-day with a nearest-neighbour ordering from the baler base.
 
 ---
@@ -363,6 +404,8 @@ base  = 0.45*urgency + 0.25*no_capacity + 0.30*history
 score = round(100 * base * (1.0 if harvested else 0.35))
 level = RED if score >= RISK_RED_AT (60) else YELLOW if score >= RISK_YELLOW_AT (40) else GREEN
 reasons = human-readable list, e.g. ["harvested 3 days ago", "6 days to sowing", "high fire history", "no baler free"]
+          "no baler accepted" replaces "no baler free" when balers refused the field and nobody is left;
+          "declined by N balers" is added when some refused but another baler is still free
 ```
 
 **Why RED is 60 (changed from 70 during the build):** a field needs ≥ 3 days to sowing to still be bookable (`SOWING_BUFFER_DAYS=2`). At 3 days, even maximum fire history scores 68, so with 70 a *bookable* field could never be RED and "alert → HAAN → GREEN" was impossible. Both thresholds are settings. Without FIRMS data (fire history 0) only fields with no free baler can reach RED.
@@ -387,7 +430,7 @@ Village aggregates: `unbooked_acres`, `red_fields`, `yellow_fields`, `max_score`
   | `bedrock` | `BedrockModel` | `BEDROCK_MODEL_ID`, model access |
   Bedrock was the original plan; the team's AWS account has no usable Bedrock model access, so an LLM API key is the expected path. Model IDs are never defaulted.
 - **Fallback:** if the LLM call fails (outage, throttling, bad key), the rules bot answers the same message with the same tools, so a farmer always gets a useful reply.
-- **Rules bot:** parses name, village (fuzzy, any script), acres (`8 acre`, `८ एकड़`, `10 killa`), and harvest date (`24 tareekh`, `kal`, `parso`, `26 Oct`, `28/10`, Devanagari/Gurmukhi digits) from every user turn since the last ✅/❌ confirmation; asks only for what is missing; replies in the farmer's script (Hindi, Punjabi, Hinglish, English); handles status ("kab aayega?"), cancel, HAAN after a reminder, and NAHI → new date → reschedule.
+- **Rules bot:** parses name, village (fuzzy, any script), acres (`8 acre`, `८ एकड़`, `10 killa`), and harvest date (`24 tareekh`, `kal`, `parso`, `26 Oct`, `28/10`, Devanagari/Gurmukhi digits) from every user turn since the last outcome message (✅ confirmed, 📨 request sent to a baler, ❌ cancelled); asks only for what is missing; replies in the farmer's script (Hindi, Punjabi, Hinglish, English); handles status ("kab aayega?"), cancel, HAAN after a reminder, and NAHI → new date → reschedule.
 - One agent instance **per inbound message** (stateless Lambda). History is loaded from `Conversations` (last 10 turns).
 - **The phone number is never an LLM argument.** Tools are built in a factory that closes over the verified sender phone, so the model cannot act on another farmer's data.
 
@@ -435,6 +478,7 @@ Validation lives in the tools, not the prompt: acres 0.5–100, dates within sea
 - Goal: register the field (acres, harvest date, village) and book a pickup.
 - Ask only for missing information, one question at a time. Convert relative dates ("parso", "24 tareekh") into absolute dates and **repeat them back**.
 - Call `book_pickup` right after the field is registered. Never invent dates, prices or payouts. Only state what tools return.
+- `book_pickup` returns `status`. `offered` means the request was only **sent** to a baler: say so, and never say the pickup is confirmed until a tool returns `confirmed` (the farmer gets a separate confirmation message when the baler accepts).
 - If there's no slot, apologise, say an officer has been notified, and promise a follow-up.
 - Off-topic messages: one polite line, then redirect.
 
@@ -464,7 +508,8 @@ Validation lives in the tools, not the prompt: acres 0.5–100, dates within sea
 **As built:**
 - **`WA_MODE`**: `simulator` (default) records every outbound message in `Conversations` and sends nothing; the dashboard's farmer simulator reads them. `cloud` records **and** sends through the Graph API. All sending goes through `channels/notify.py`.
 - **Synthetic farmers are never messaged** (`Farmer.synthetic`, set for seed and test numbers), even in cloud mode.
-- **Proactive messages** (`notify.send_proactive`) choose interactive buttons inside the 24 h window and the approved template outside it. Templates and exact text: `channels/templates.py`, `docs/whatsapp_templates.md` (`pickup_reminder`, `baler_tomorrow`, `village_alert`, `field_cleared`).
+- **Proactive messages** (`notify.send_proactive`) choose interactive buttons inside the 24 h window and the approved template outside it. Templates and exact text: `channels/templates.py`, `docs/whatsapp_templates.md` (`pickup_reminder`, `baler_tomorrow`, `village_alert`, `field_cleared`, and for offers `booking_confirmed`, `booking_changed`, `booking_delayed`).
+- **Offer messages:** the reply to a booking request is "📨 … request baler ko bhej di hai. Confirm hote hi batayenge." (no ✅). `booking_confirmed` goes out when the baler accepts, `booking_changed` when a re-offer lands on a different date, `booking_delayed` when nobody accepted.
 - **Button ids** are `<action>:<field_id>` with actions `confirm`, `later`, `alertbook`; the processor ignores ids for fields the sender doesn't own.
 - **Voice:** `STT_PROVIDER` = `transcribe` (Amazon Transcribe), `openai` (any OpenAI-compatible `/audio/transcriptions`, `STT_MODEL_ID`), or `none` (reply "please type"). Duration is read from the Ogg header; > 60 s is refused. Replies get a Polly voice note when the inbound was voice (`TTS_PROVIDER=polly`, needs `MEDIA_BUCKET`).
 - **Rate limit:** more than `RATE_LIMIT_PER_HOUR` (20) messages per phone per hour get a polite "write later".
@@ -495,7 +540,11 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | GET | `/api/operator/me/schedule?days=` | operator | Stops, done count, booked/capacity acres and villages per day (1–31 days, default 14) |
 | GET | `/api/operator/me/history?from=&to=` | operator | DONE bookings (no phone numbers) + totals; default season start → today |
 | GET | `/api/buyers/me/demand/history` | buyer | Saved demand edits, newest first |
-| POST | `/api/bookings/{id}/done` | operator (own booking only) | Mark done |
+| GET | `/api/operator/me/requests` | operator | Open offers for the token's `baler_id` (no farmer phone), server `now`, decline reasons |
+| POST | `/api/bookings/{id}/accept` | operator (own) | Conditional `OFFERED` and not expired → `CONFIRMED`; farmer notified. 409 `not_offered` / `expired` |
+| POST | `/api/bookings/{id}/decline` `{reason, note?}` | operator (own) | → `DECLINED`, capacity released, re-offered. `reason` ∈ `machine_unavailable`, `too_far`, `day_full`, `other` |
+| POST | `/api/bookings/{id}/reassign` | officer | Move an unanswered offer to the next baler now |
+| POST | `/api/bookings/{id}/done` | operator (own booking only) | Mark done (from `CONFIRMED` only) |
 | GET | `/api/register/villages?q=` | any signed-in user | Village list for the application form; `q` = fuzzy search (same matcher as the farmer agent) |
 | POST | `/api/register` | `pending` only | Submit a baler/buyer application (Pydantic-validated); 409 if one is open or already approved |
 | GET | `/api/register/me` | any signed-in user | The caller's latest application + status (or `null`) |
@@ -504,7 +553,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | POST | `/api/applications/{id}/reject` `{reason}` | officer | Reason required (3–500 chars); 409 unless `PENDING` |
 | POST | `/api/balers/{id}/active` `{active}` | officer | Deactivate / reactivate a baler (and the operator's group) |
 | GET/PUT | `/api/demo/clock` | officer (demo mode only) | Get/set simulated today |
-| POST | `/api/demo/simulate` `{action}` | officer (demo mode) | e.g. `harvest_wave`, `run_risk`, `reset` |
+| POST | `/api/demo/simulate` `{action}` | officer (demo mode) | e.g. `harvest_wave`, `run_risk`, `run_reminders`, `run_offers` (expire unanswered offers now), `reset` |
 | GET | `/api/me` | any signed-in role | Principal + display name + runtime config (WA mode, demo mode, today) |
 | GET | `/api/balers`, `/api/buyers`, `/api/bookings?date=` | officer | Super-admin tables (baler 7-day load, buyer demand, all bookings) |
 | POST | `/api/sim/message` `{phone, text \| button_id \| lat,lng}` | officer, `WA_MODE=simulator` only | Farmer simulator: runs the real processor path |
@@ -529,6 +578,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `/login` | all | Cognito hosted UI or Amplify `Authenticator` |
 | `/admin` (was `/officer`) | officer | KPI bar (registered/booked/cleared acres, RED count) · map (field pins, FIRMS heatmap toggle, harvest grid toggle, village risk circles) · right panel: villages sorted by risk, "Alert village" button, field detail drawer with reasons |
 | `/buyer`, `/buyer/deliveries`, `/buyer/demand`, `/buyer/profile` | buyer | Overview (KPIs + stacked bar of incoming tonnes per day) · deliveries table + CSV export · demand form + change history · profile |
+| `/baler/requests` | operator | Open offers as cards: farmer, village, distance, pickup day, acres, countdown, map; **Accept · स्वीकार** / **Decline · मना करें** (reason picker). Badge on the tab and a banner on Today |
 | `/baler` (was `/operator`), `/baler/schedule`, `/baler/history`, `/baler/profile` | operator | Simple and mobile-first: date switcher, ordered stop list (farmer, village, acres, call button), map with route, big "Done" buttons, "Available today" toggle + acres/day, banner for nearby village alerts |
 | `/impact` | public | Big animated counters, for the video |
 | `/register` | public, then `pending` | Role cards → Cognito sign-up + email code → application form (fuzzy village search, Hindi helper labels for balers) |
@@ -607,6 +657,8 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `TTS_PROVIDER` | `polly` | `none` disables voice replies |
 | `MAX_VOICE_SECONDS`, `RATE_LIMIT_PER_HOUR` | `60`, `20` | |
 | `RISK_RED_AT`, `RISK_YELLOW_AT` | `60`, `40` | §6 |
+| `OFFER_SLA_MINUTES`, `OFFER_MAX_ATTEMPTS` | `120`, `3` | §4.1: time a baler has to answer; balers asked before escalating |
+| `AUTO_ACCEPT_DEMO` | `false` | `true` confirms bookings instantly (no baler step) |
 | `ALERT_COOLDOWN_MINUTES` | `30` | one alert per village per window |
 | `DEV_AUTH` | `false` | local dev server only; never in a shared stack |
 | `USER_POOL_ID` | from SAM (ApiFunction) | Cognito pool for approving registrations; unset = no Cognito calls (local dev) |
@@ -670,5 +722,6 @@ Registration tests (`tests/test_registration.py`) mock Cognito with moto (`cogni
   - `harvest_wave`: marks N fields in a village as harvested and unbooked → RED
   - `run_risk`: runs the risk job now
   - `run_reminders`: runs the reminders now
+  - `run_offers`: expires unanswered offers now (moving the demo clock a day forward makes every open offer due)
   - `reset`: reseeds
 - `scripts/demo_clock.py set 2026-10-24` does the same from the CLI.

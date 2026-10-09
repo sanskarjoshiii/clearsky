@@ -17,14 +17,17 @@ Works the same locally (`make dev` + `make dashboard`) and on the deployed stack
 | # | Where | Action | What the viewer sees |
 |---|---|---|---|
 | 1 | Admin → Demo controls | **Reset** → confirm | Demo day = 20 Oct, fresh seed, radar mostly green |
-| 2 | Farmer panel | Send `Mera 8 acre dhaan 24 tareekh ko katega, Bhawanigarh. Naam Gurpreet.` (or a Hindi voice note on a real phone) | Agent replies in Hinglish: "✅ Gurpreet ji, 8 acre ka khet 25 Oct ko saaf hoga…" (plus a Hindi voice reply on a real phone with Polly) |
-| 3 | Admin → Bookings → All | Find Gurpreet's row | Booked on 25 Oct with a named baler and buyer |
-| 4 | Baler window | Sign in as that baler → **Next stops: 25 Oct** | Gurpreet is a numbered stop on the route map |
+| 2 | Farmer panel | Send `Mera 8 acre dhaan 24 tareekh ko katega, Bhawanigarh. Naam Gurpreet.` (or a Hindi voice note on a real phone) | Agent replies in Hinglish: "📨 Gurpreet ji, 8 acre ke khet ki request 25 Oct ke liye baler ko bhej di hai. Confirm hote hi batayenge." (plus a Hindi voice reply on a real phone with Polly) |
+| 3 | Admin → Bookings → All | Find Gurpreet's row | **Offered** to a named baler for 25 Oct, with a buyer; radar KPI "Offers waiting" = 1 |
+| 4 | Baler window | Sign in as that baler → **Requests · नए काम** (badge 1) → **Accept · स्वीकार** | Farmer panel shows "✅ Gurpreet ji, 25 Oct ko baler … aapka khet saaf karne aayega"; the row in Bookings turns **Confirmed** |
+| 4b | Baler window | **Today** → **Next stops: 25 Oct** | Gurpreet is a numbered stop on the route map |
 | 5 | Baler window | **Done · हो गया** → confirm | Stop turns green; farmer panel shows "✅ … aapka khet aaj saaf ho gaya" |
 | 6 | Admin → Demo controls | Clock **Day →** to 26 Oct, then **Harvest wave** (Auto) | A high-fire-history village fills with amber/red rings |
 | 7 | Admin → Radar | Click that village → **Alert** → **Send WhatsApp offer** | Toast: "Offer sent to N farmers · M balers flagged"; baler window shows the admin-alert banner |
-| 8 | Farmer panel | Pick an alerted farmer from the panel's **Inbox** list (or use the real phone that got the alert); tap **HAAN, book karo** | "✅ … khet … ko saaf hoga"; within 10 s the pin turns into a solid green dot |
+| 8 | Farmer panel | Pick an alerted farmer from the panel's **Inbox** list (or use the real phone that got the alert); tap **HAAN, book karo** | "📨 … request … baler ko bhej di hai"; within 10 s the pin turns into a solid green dot (the nearby baler then accepts it under Requests) |
 | 9 | Impact | Show counters | Acres booked/cleared, tonnes routed, "saved after alert" ≥ 1 |
+
+**Optional scene (a baler says no):** in step 4 tap **Decline · मना करें** → *Too far* instead. Bookings (filter "With declined / expired") shows the first baler **Declined** and a second baler **Offered**; sign in as that baler and accept. To show a time-out without waiting two hours, use **Demo controls → Expire unanswered offers** after moving the clock one day. For a recording without any baler step, set `AUTO_ACCEPT_DEMO=true`.
 
 ## Before recording
 

@@ -8,6 +8,7 @@ from typing import Any
 from clearsky import clock
 from clearsky.config import get_settings
 from clearsky.models import BookingStatus, FieldStatus, RiskLevel
+from clearsky.models.enums import FIRM_BOOKING_STATUSES
 from clearsky.repo import AlertsRepo, BookingsRepo, FarmersRepo, FieldsRepo
 
 
@@ -19,14 +20,19 @@ def compute() -> dict[str, Any]:
     fields = FieldsRepo().list_all()
     bookings = BookingsRepo().list_all()
     alerts = AlertsRepo().list_all()
-    live = [b for b in bookings if b.status != BookingStatus.CANCELLED]
+    # Only pickups a baler has accepted (or finished) count. Offers still waiting for an answer are
+    # shown separately as "offers waiting".
+    live = [b for b in bookings if b.status in FIRM_BOOKING_STATUSES]
     done = [b for b in live if b.status == BookingStatus.DONE]
+    offered = [b for b in bookings if b.status == BookingStatus.OFFERED]
 
     first_alert: dict[str, datetime] = {}
     for a in alerts:
         first_alert.setdefault(a.village_id, _aware(a.created_at))
     saved = sum(
-        1 for b in live if b.village_id in first_alert and _aware(b.created_at) > first_alert[b.village_id]
+        1
+        for b in [*live, *offered]
+        if b.village_id in first_alert and _aware(b.created_at) > first_alert[b.village_id]
     )
 
     factor = get_settings().emission_factor_pm25_kg_per_tonne
@@ -36,8 +42,16 @@ def compute() -> dict[str, Any]:
         "fields": len(fields),
         "acres_registered": round(sum(f.acres for f in fields), 1),
         "acres_booked": round(
-            sum(f.acres for f in fields if f.status in (FieldStatus.BOOKED, FieldStatus.CLEARED)), 1
+            sum(
+                f.acres
+                for f in fields
+                if f.status == FieldStatus.CLEARED
+                or (f.status == FieldStatus.BOOKED and f.booking_state != "offered")
+            ),
+            1,
         ),
+        "offers_waiting": len(offered),
+        "acres_offered": round(sum(b.acres for b in offered), 1),
         "acres_cleared": round(sum(f.acres for f in fields if f.status == FieldStatus.CLEARED), 1),
         "tonnes_booked": round(sum(b.est_tonnes for b in live), 1),
         "tonnes_delivered": tonnes_delivered,
