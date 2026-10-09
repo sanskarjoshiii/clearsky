@@ -44,6 +44,13 @@ FIELD_CLEARED = Template(
     "✅ {{1}} ji, aapka khet aaj saaf ho gaya. Parali na jalane ke liye dhanyavaad! 🙏",
 )
 
+# Sent instead of `field_cleared` when a sourced PM2.5 factor is configured (issue #5). {{2}} = kg, an estimate.
+FIELD_CLEARED_IMPACT = Template(
+    "field_cleared_impact",
+    "✅ {{1}} ji, aapka khet aaj saaf ho gaya. Aapke khet se lagbhag {{2}} kg dhuan (PM2.5) rukne ka anumaan "
+    "hai. Parali na jalane ke liye dhanyavaad! 🙏",
+)
+
 # Offer lifecycle (issue #3): the farmer hears "confirmed" only after a baler accepted.
 BOOKING_CONFIRMED = Template(
     "booking_confirmed",
@@ -66,6 +73,7 @@ ALL = {
         BALER_TOMORROW,
         VILLAGE_ALERT,
         FIELD_CLEARED,
+        FIELD_CLEARED_IMPACT,
         BOOKING_CONFIRMED,
         BOOKING_CHANGED,
         BOOKING_DELAYED,

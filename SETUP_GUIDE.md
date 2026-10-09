@@ -27,6 +27,7 @@ What's left needs **your accounts and approvals**: an LLM API key, the AWS deplo
 | 7 | WhatsApp Cloud API (Meta) | You | 45 min + template approval | Real WhatsApp messages |
 | 8 | NASA FIRMS key | Anyone | 5 min | Fire-history map and **red** risk |
 | 9 | Confirm villages + demo prices | Team | 15 min | Demo honesty |
+| 9b | Emission factors with sources | Team | 30 min | Showing pollution avoided (nothing is shown without them) |
 | 10 | Video, blog, submission | Team | | Hackathon submission |
 
 At the end there is a **reply template** to paste back to Claude.
@@ -57,7 +58,9 @@ git pull
 
 Each role has its own app: **Admin** at `/admin`, **Baler** at `/baler` (phone-first, with Schedule / History / Profile tabs) and **Buyer** at `/buyer` (Overview / Deliveries / Demand / Profile). Old `/officer` and `/operator` links redirect.
 
-Automated checks: `.\make.ps1 test` (backend, 177 tests) and `.\make.ps1 e2e` (dashboard; uses your installed Google Chrome).
+Automated checks: `.\make.ps1 test` (backend) and `.\make.ps1 e2e` (dashboard; uses your installed Google Chrome).
+
+**What changed with the four GitHub issues (2026-10-09):** a farmer's request now goes to a baler as an **offer**; the baler opens **Requests** and taps **Accept** (or **Decline**), and only then does the farmer get the ✅ confirmation. Balers and buyers can **register themselves** and the admin approves them. And the impact page can show **pollution avoided**, but only after you give us sourced emission factors (step 9b).
 
 The full demo story is in `docs/demo_runbook.md`.
 
@@ -327,6 +330,25 @@ Reply "Villages OK" or the corrections.
 
 ---
 
+## 9b. Emission factors for "pollution avoided" (Team)
+
+clearsky can show how much air pollution each cleared field avoided (on the public Impact page, in the admin drawer, for balers and buyers, and in the farmer's "field cleared" message). **It will not show any number until the team supplies emission factors from a published source.** We never make these up.
+
+1. Pick a peer-reviewed source for **open burning of rice straw / crop residue** (a compilation paper or an Indian field study).
+2. For each pollutant you want to show (PM2.5 first; optionally PM10, CO, CO₂, black carbon) note the **value in kg per tonne of straw burnt** (g/kg is the same number), the **citation** (author, year, journal, table or page) and a **link** (DOI).
+3. Have a second teammate check each value against the paper.
+4. Put them in `.env` as one line of JSON (and, when deployed, in the stack parameter `EmissionFactors`):
+   ```
+   EMISSION_FACTORS={"pm25":{"kg_per_tonne":<value>,"source":"<author, year, journal>","url":"<doi link>"}}
+   ```
+   Keys: `pm25`, `pm10`, `co`, `co2`, `bc`. A factor without `"source"` is ignored.
+5. Record the same values in `README.md` §16 (the table is there, empty).
+6. Bookings that were already done get their figures with `cd backend; python -m uv run python scripts\backfill_impact.py` (add `--dry-run` first to see what it would do).
+
+If you would rather not claim that every unbooked field would have been burnt, set `BURN_FRACTION` below 1, with its own source; otherwise leave it at 1 and the page says "if burnt".
+
+---
+
 ## 10. Video, blog, submission (Team)
 
 - Rehearse `docs/demo_runbook.md` three times on the deployed stack, then record (≤ 3 min, 1080p).
@@ -348,4 +370,5 @@ Reply "Villages OK" or the corrections.
 7. WhatsApp:                       test number connected / templates submitted / not yet
 8. FIRMS key:                      yes / CSVs / not yet
 9. Villages + prices:              OK / corrections: ______
+9b. Emission factors:              pollutant ______ = ______ kg/t, source ______, link ______ / keep pollution figures off
 ```

@@ -55,6 +55,8 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "WA_VERIFY_TOKEN",
         "WA_PHONE_NUMBER_ID",
         # a developer's own settings must not leak into tests
+        "EMISSION_FACTORS",
+        "BURN_FRACTION",
         "AUTO_ACCEPT_DEMO",
         "OFFER_SLA_MINUTES",
         "OFFER_MAX_ATTEMPTS",

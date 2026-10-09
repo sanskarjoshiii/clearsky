@@ -53,6 +53,16 @@ Sent when a baler operator taps **Done** on the operator dashboard.
   Sample value: `Gurpreet`
 - **Buttons:** none
 
+## 4b. `field_cleared_impact`
+Sent **instead of** `field_cleared` when the team has configured a sourced PM2.5 emission factor (`EMISSION_FACTORS`). `{{2}}` is an estimate in kg; submit this template only once the factor and its source are agreed.
+
+- **Body**
+  ```
+  ✅ {{1}} ji, aapka khet aaj saaf ho gaya. Aapke khet se lagbhag {{2}} kg dhuan (PM2.5) rukne ka anumaan hai. Parali na jalane ke liye dhanyavaad! 🙏
+  ```
+  Sample values: `{{1}}` = `Gurpreet`, `{{2}}` = `40`
+- **Buttons:** none
+
 ## 5. `booking_confirmed`
 Sent when a baler **accepts** the farmer's request on the baler dashboard. This is the first message that tells the farmer the pickup is certain.
 

@@ -29,6 +29,13 @@ export function Overview() {
                 { label: "Delivered", value: `${fmtNum(b.received_tonnes)} t` },
                 { label: "Still needed", value: `${fmtNum(b.remaining_tonnes)} t` },
                 { label: "Your price", value: fmtInr(b.price_per_tonne), hint: "per tonne (demo)" },
+                ...Object.values(s.impact)
+                  .slice(0, 1)
+                  .map((v) => ({
+                    label: `${v.label} avoided`,
+                    value: `${fmtNum(v.value)} ${v.unit}`,
+                    hint: "by straw you received (estimate)",
+                  })),
               ]}
             />
             <Card

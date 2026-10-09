@@ -388,6 +388,33 @@ farmer_payout = max(0, gross - baling_cost - transport - PLATFORM_FEE_PER_TONNE 
 
 ---
 
+## 5b. Impact: pollution avoided (`domain/impact.py`)
+
+Straw that is baled is straw that is not burnt. For every booking that becomes `DONE`:
+
+```
+straw_tonnes_not_burnt = booking.est_tonnes
+avoided_<pollutant> kg = straw_tonnes_not_burnt × BURN_FRACTION × EF_<pollutant>
+                         (EF = kg of the pollutant per tonne of rice straw burnt in the open)
+```
+
+- **No factor is built in.** `EMISSION_FACTORS` is a JSON setting, one entry per pollutant with its citation: `{"pm25": {"kg_per_tonne": …, "source": "…", "url": "…"}}`. Pollutants: `pm25`, `pm10`, `co`, `co2`, `bc`. An entry without a `source`, with a non-positive value, or for an unknown pollutant is ignored. With no valid entry, **no impact figure appears anywhere** (API fields are empty, the UI hides the blocks, and the admin sees a hint on `/impact`).
+- `BURN_FRACTION` (default `1.0`, "if burnt") scales the result; a value below 1 needs its own citation.
+- **Snapshot:** `matching.mark_done` writes `impact` (kg per pollutant), `impact_tonnes` and `impact_factors_version` (a fingerprint of the factors and the burn fraction) onto the booking in the same transaction. History therefore never changes silently when a factor is edited. `scripts/backfill_impact.py` fills bookings done before factors existed; `--recompute` deliberately overwrites snapshots made with other factors.
+- **Only `DONE` counts.** Offered, confirmed, cancelled, declined and expired bookings carry no impact.
+- **Display:** values are stored in kg; CO₂ is shown in tonnes, the rest in kg. Every number is labelled an **estimate** and shown with its source. A pollutant whose factor is withdrawn stops being shown, though old snapshots keep it.
+- **Public table** (`impact.public_table`, `GET /api/impact`): a district total, then one group per village with its cleared fields. Farmer names are masked (`Gurpreet S.`), and no phone number, field id or booking id is returned. Each row has its impact per pollutant and a cumulative `trend` for the first configured pollutant; `period=week` adds `by_week`.
+
+| Surface | What is shown |
+|---|---|
+| Public `/impact` | A counter per pollutant, a cumulative season chart, the impact table (village groups, trend sparkline, formula pill, pollutant or week columns), and a methodology note with every factor and its citation |
+| Admin | "Avoided (est.)" column in Bookings for done rows; an impact block in the field drawer for cleared fields |
+| Baler | After **Done**: "Field cleared · ~X kg PM2.5 avoided (estimate)"; the same under the done stop; season totals on History |
+| Buyer | KPI "avoided by straw you received"; "Avoided (est.)" column in Deliveries |
+| Farmer (WhatsApp) | When a PM2.5 factor is configured, the cleared message is `field_cleared_impact` ("… lagbhag X kg dhuan (PM2.5) rukne ka anumaan …") instead of `field_cleared` |
+
+---
+
 ## 6. Risk Scoring (`domain/risk.py`)
 
 Inputs per field: status, harvest_date, harvest_confirmed, sowing_deadline, today, village.fire_history_score, and slot availability (a cheap check: does any baler within radius have capacity before the deadline).
@@ -508,7 +535,7 @@ Validation lives in the tools, not the prompt: acres 0.5–100, dates within sea
 **As built:**
 - **`WA_MODE`**: `simulator` (default) records every outbound message in `Conversations` and sends nothing; the dashboard's farmer simulator reads them. `cloud` records **and** sends through the Graph API. All sending goes through `channels/notify.py`.
 - **Synthetic farmers are never messaged** (`Farmer.synthetic`, set for seed and test numbers), even in cloud mode.
-- **Proactive messages** (`notify.send_proactive`) choose interactive buttons inside the 24 h window and the approved template outside it. Templates and exact text: `channels/templates.py`, `docs/whatsapp_templates.md` (`pickup_reminder`, `baler_tomorrow`, `village_alert`, `field_cleared`, and for offers `booking_confirmed`, `booking_changed`, `booking_delayed`).
+- **Proactive messages** (`notify.send_proactive`) choose interactive buttons inside the 24 h window and the approved template outside it. Templates and exact text: `channels/templates.py`, `docs/whatsapp_templates.md` (`pickup_reminder`, `baler_tomorrow`, `village_alert`, `field_cleared`, `field_cleared_impact`, and for offers `booking_confirmed`, `booking_changed`, `booking_delayed`).
 - **Offer messages:** the reply to a booking request is "📨 … request baler ko bhej di hai. Confirm hote hi batayenge." (no ✅). `booking_confirmed` goes out when the baler accepts, `booking_changed` when a re-offer lands on a different date, `booking_delayed` when nobody accepted.
 - **Button ids** are `<action>:<field_id>` with actions `confirm`, `later`, `alertbook`; the processor ignores ids for fields the sender doesn't own.
 - **Voice:** `STT_PROVIDER` = `transcribe` (Amazon Transcribe), `openai` (any OpenAI-compatible `/audio/transcriptions`, `STT_MODEL_ID`), or `none` (reply "please type"). Duration is read from the Ogg header; > 60 s is refused. Replies get a Polly voice note when the inbound was voice (`TTS_PROVIDER=polly`, needs `MEDIA_BUCKET`).
@@ -524,7 +551,8 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET/POST | `/webhook/whatsapp` | Meta signature | Webhook |
-| GET | `/api/stats` | public | Impact counters |
+| GET | `/api/stats` | public | Impact counters, incl. `impact` (per pollutant: `kg`, `value`, `unit`, `label`, `source`, `url`), `impact_factors`, `impact_configured`, `impact_estimate` |
+| GET | `/api/impact?group=village\|field&period=season\|week` | public | Pollution-avoided table (§5b): masked names, no phone numbers |
 | GET | `/api/villages` | officer | Villages + risk aggregates |
 | GET | `/api/fields?village_id=&status=&level=` | officer | Field pins |
 | GET | `/api/fields/{id}` | officer | Detail + reasons + booking |
@@ -580,7 +608,7 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `/buyer`, `/buyer/deliveries`, `/buyer/demand`, `/buyer/profile` | buyer | Overview (KPIs + stacked bar of incoming tonnes per day) · deliveries table + CSV export · demand form + change history · profile |
 | `/baler/requests` | operator | Open offers as cards: farmer, village, distance, pickup day, acres, countdown, map; **Accept · स्वीकार** / **Decline · मना करें** (reason picker). Badge on the tab and a banner on Today |
 | `/baler` (was `/operator`), `/baler/schedule`, `/baler/history`, `/baler/profile` | operator | Simple and mobile-first: date switcher, ordered stop list (farmer, village, acres, call button), map with route, big "Done" buttons, "Available today" toggle + acres/day, banner for nearby village alerts |
-| `/impact` | public | Big animated counters, for the video |
+| `/impact` | public | Big animated counters, for the video; with sourced emission factors also pollution avoided per pollutant, a season chart, the impact table and its methodology (§5b) |
 | `/register` | public, then `pending` | Role cards → Cognito sign-up + email code → application form (fuzzy village search, Hindi helper labels for balers) |
 | `/pending` | `pending` | Status card: under review / approved (auto-redirect) / rejected with reason + "Edit and resubmit" / deactivated |
 | `/admin/approvals` | officer | Applications table with filters; drawer with every field, duplicate warning, map pin, **Approve** / **Reject (reason)**; "N pending" badge on the rail |
@@ -639,7 +667,8 @@ HTTP API with a Cognito JWT authorizer, except the webhook and `/api/stats`. Use
 | `SOWING_BUFFER_DAYS` | `2` | |
 | `SEASON_SOWING_CUTOFF` | `2026-11-15` | |
 | `BALING_COST_PER_ACRE`, `TRANSPORT_COST_PER_TONNE_KM`, `PLATFORM_FEE_PER_TONNE` | demo values | labeled "demo" in the UI |
-| `EMISSION_FACTOR_PM25_KG_PER_TONNE` | **ask team** (with source) | used only for the impact estimate |
+| `EMISSION_FACTORS` | **ask team** (JSON, each factor with its source) | §5b; empty = no pollution figures anywhere. Replaces `EMISSION_FACTOR_PM25_KG_PER_TONNE` |
+| `BURN_FRACTION` | `1.0` | §5b; below 1 needs a citation |
 | `VILLAGE_RADIUS_KM` | `3` | FIRMS aggregation |
 | `DEMO_MODE` | `true` in dev | enables the `Settings.clock` override |
 | `DDB_ENDPOINT_URL` | unset | local DynamoDB / moto server; unset = real AWS |

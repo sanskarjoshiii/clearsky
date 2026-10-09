@@ -1,4 +1,3 @@
-import { Impact } from "./pages/Impact";
 import { Navigate, createBrowserRouter, useLocation } from "react-router";
 import { homeFor, useAuth } from "./auth/AuthProvider";
 import { Loading, RequireRole } from "./auth/RequireRole";
@@ -37,7 +36,8 @@ function NotFound() {
 export const router = createBrowserRouter([
   { path: "/", element: <Home /> },
   { path: "/login", element: <Login /> },
-  { path: "/impact", element: <Impact /> },
+  // lazy: the impact page draws a chart, and the chart library stays out of the main bundle
+  { path: "/impact", lazy: () => import("./pages/Impact"), hydrateFallbackElement: <Loading /> },
   // self-registration: /register is public (sign-up + application form); /pending is the waiting room
   { path: "/register", element: <Register /> },
   { path: "/pending", element: <Pending /> },

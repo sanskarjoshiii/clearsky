@@ -24,6 +24,13 @@ export default defineConfig({
     {
       command: process.env.CLEARSKY_API_CMD ?? "uv run python scripts/dev_server.py",
       cwd: "../backend",
+      // A made-up factor so e2e/impact.spec.ts can check the pollution-avoided plumbing. It exists only
+      // in the backend Playwright starts; clearsky itself ships with no emission factors.
+      env: {
+        EMISSION_FACTORS: JSON.stringify({
+          pm25: { kg_per_tonne: 1, source: "TEST VALUE for automated tests, not a real emission factor" },
+        }),
+      },
       url: "http://127.0.0.1:8787/health",
       reuseExistingServer: true,
       timeout: 120_000,

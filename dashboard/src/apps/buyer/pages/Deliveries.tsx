@@ -1,10 +1,11 @@
 import { Download, Truck } from "lucide-react";
-import { useSupply } from "../../../api/hooks";
+import { useStats, useSupply } from "../../../api/hooks";
 import type { Supply } from "../../../api/types";
 import { DataTable } from "../../../components/DataTable";
 import { PageBody, TopBar } from "../../../components/Shell";
 import { Button, Card, Chip, Empty, ErrorNote, PageTitle, StatusChip } from "../../../components/ui";
 import { fmtDay, fmtInr, fmtNum } from "../../../lib/format";
+import { headline } from "../../../lib/impact";
 
 type Delivery = Supply["deliveries"][number];
 
@@ -38,6 +39,8 @@ function download(name: string, text: string) {
 /** Every pickup routed to this buyer, with a CSV export for their own records. */
 export function Deliveries() {
   const supply = useSupply();
+  const factors = useStats(false).data?.impact_factors;
+  const hasImpact = !!factors && Object.keys(factors).length > 0;
   const rows = supply.data?.deliveries ?? [];
   return (
     <>
@@ -68,6 +71,16 @@ export function Deliveries() {
               { key: "km", header: "Distance", align: "right", render: (d) => `${fmtNum(d.distance_km)} km` },
               { key: "price", header: "Price (demo)", align: "right", render: (d) => fmtInr(d.price_per_tonne) },
               { key: "status", header: "Status", render: (d) => <StatusChip status={d.status} /> },
+              ...(hasImpact
+                ? [
+                    {
+                      key: "avoided",
+                      header: "Avoided (est.)",
+                      align: "right" as const,
+                      render: (d: Delivery) => headline(d.impact, factors) ?? <span className="text-faint">–</span>,
+                    },
+                  ]
+                : []),
             ]}
           />
         </Card>

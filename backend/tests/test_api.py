@@ -150,7 +150,8 @@ def test_operator_schedule_and_history(api: None) -> None:
     call("POST", f"/api/bookings/{bk.booking_id}/done", token=token)
     history = call("GET", "/api/operator/me/history", token=token, query=window)[1]
     assert [r["booking_id"] for r in history["rows"]] == [bk.booking_id]
-    assert history["totals"] == {"fields": 1, "acres": bk.acres, "tonnes": bk.est_tonnes}
+    # no emission factors are configured in tests, so the impact total is empty (see test_impact.py)
+    assert history["totals"] == {"fields": 1, "acres": bk.acres, "tonnes": bk.est_tonnes, "impact": {}}
     assert "farmer_phone" not in history["rows"][0]
     assert call("GET", "/api/operator/me/history", token=token, query={"from": "nope"})[0] == 400
     assert call("GET", "/api/operator/me/schedule", token=BUYER)[0] == 403
@@ -229,7 +230,9 @@ def test_simulator_hidden_in_cloud_mode(api: None, monkeypatch: pytest.MonkeyPat
 
 def test_stats(api: None) -> None:
     stats = call("GET", "/api/stats")[1]
-    assert stats["fields"] == 60 and stats["bookings"] >= 1 and stats["pm25_avoided_kg"] is None
+    assert stats["fields"] == 60 and stats["bookings"] >= 1
+    # clearsky ships with no emission factors: nothing about pollution is reported until they are set
+    assert stats["impact"] == {} and stats["impact_configured"] is False and stats["impact_estimate"] is True
     assert stats["acres_booked"] > 0 and stats["demo_prices"] is True
 
 

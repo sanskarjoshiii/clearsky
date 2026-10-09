@@ -46,6 +46,13 @@ Parameters:
     Type: String
     Default: polly
     AllowedValues: [polly, none]
+  EmissionFactors:
+    Type: String
+    Default: ""
+    Description: >-
+      Optional JSON with SOURCED emission factors (kg per tonne of rice straw burnt in the open), e.g.
+      {"pm25":{"kg_per_tonne":0,"source":"author, year, journal","url":"https://doi.org/..."}}.
+      Empty = no pollution figures are shown. Never put an unsourced value here.
   CorsOrigins:
     Type: String
     Default: "*"
@@ -85,6 +92,7 @@ Globals:
         STT_MODEL_ID: !Ref SttModelId
         TTS_PROVIDER: !Ref TtsProvider
         CORS_ORIGINS: !Ref CorsOrigins
+        EMISSION_FACTORS: !Ref EmissionFactors
         POWERTOOLS_SERVICE_NAME: clearsky
         LOG_LEVEL: INFO
 
@@ -258,6 +266,9 @@ Resources:
         Stats:
           Type: HttpApi
           Properties: { ApiId: !Ref HttpApi, Path: /api/stats, Method: GET, Auth: { Authorizer: NONE } }
+        Impact:  # public impact table: masked names, no phone numbers
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /api/impact, Method: GET, Auth: { Authorizer: NONE } }
         Api:
           Type: HttpApi
           Properties: { ApiId: !Ref HttpApi, Path: "/api/{proxy+}", Method: ANY }
