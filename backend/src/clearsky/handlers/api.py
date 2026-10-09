@@ -18,10 +18,10 @@ from pydantic import Field as PField
 
 from clearsky import auth, clock
 from clearsky.channels import notify
-from clearsky.channels.templates import FIELD_CLEARED
+from clearsky.channels.templates import FIELD_CLEARED, FIELD_CLEARED_IMPACT
 from clearsky.config import get_settings
 from clearsky.domain import alerts as alerts_domain
-from clearsky.domain import demo, matching, offers, registration, stats
+from clearsky.domain import demo, impact, matching, offers, registration, stats
 from clearsky.domain.geo import haversine_km
 from clearsky.logging import get_logger, mask_phone
 from clearsky.models import ApplicationStatus, BookingStatus
@@ -144,6 +144,19 @@ def masked(phone: str) -> str:
 @app.get("/api/stats")
 def get_stats() -> dict[str, Any]:
     return stats.compute()
+
+
+@app.get("/api/impact")
+def get_impact() -> dict[str, Any]:
+    """Public impact table: pollution avoided per cleared field, grouped by village (issue #5).
+
+    No sign-in. Farmer names are masked and no phone number or id is returned. Every figure is an
+    estimate from the sourced factors in EMISSION_FACTORS; with none configured, `impact` is empty.
+    """
+    group, period = q("group") or "village", q("period") or "season"
+    if group not in ("village", "field") or period not in ("season", "week"):
+        raise ApiError(400, "bad_request", "group must be village|field and period season|week")
+    return impact.public_table(group, period)
 
 
 @app.get("/api/me")
@@ -534,6 +547,7 @@ def buyer_supply() -> dict[str, Any]:
             "acres": bk.acres,
             "price_per_tonne": bk.buyer_price_per_tonne,
             "distance_km": round(haversine_km(bk.lat, bk.lng, b.lat, b.lng), 1),
+            "impact": impact.shown(bk.impact),  # kg per pollutant, DONE rows only (estimate)
         }
         for bk in sorted(items, key=lambda x: (x.date, x.booking_id))
     ]
@@ -545,6 +559,8 @@ def buyer_supply() -> dict[str, Any]:
             "booked": round(sum(v["booked"] for v in by_date.values()), 1),
             "delivered": round(sum(v["delivered"] for v in by_date.values()), 1),
         },
+        # pollution avoided by the straw this buyer received
+        "impact": impact.display(impact.totals(items)),
     }
 
 
@@ -668,6 +684,7 @@ def operator_route() -> dict[str, Any]:
                 "farmer_name": farmer.name if farmer else None,
                 "farmer_phone": s.phone,  # operator needs the full number for the call button (own stops only)
                 "village_name": villages[s.village_id].name if s.village_id in villages else s.village_id,
+                "impact": impact.shown(s.impact),
             }
         )
     confirmed = [r for r in rows if r["status"] == "CONFIRMED"]
@@ -740,6 +757,7 @@ def operator_history() -> dict[str, Any]:
             "village_name": villages[bk.village_id].name if bk.village_id in villages else bk.village_id,
             "acres": bk.acres,
             "est_tonnes": bk.est_tonnes,
+            "impact": impact.shown(bk.impact),
         }
         for bk in sorted(done, key=lambda x: (x.date, x.booking_id), reverse=True)
     ]
@@ -751,6 +769,7 @@ def operator_history() -> dict[str, Any]:
             "fields": len(rows),
             "acres": round(sum(bk.acres for bk in done), 1),
             "tonnes": round(sum(bk.est_tonnes for bk in done), 1),
+            "impact": impact.display(impact.totals(done)),
         },
     }
 
@@ -864,8 +883,17 @@ def booking_done(booking_id: str) -> dict[str, Any]:
     bk = result.booking
     assert bk is not None
     farmer = FarmersRepo().get(bk.phone)
-    notify.send_proactive(bk.phone, FIELD_CLEARED, [farmer.name if farmer else ""])
-    return {"ok": True, "booking": bk.model_dump(mode="json", exclude={"phone"})}
+    name = farmer.name if farmer else ""
+    avoided = impact.shown(bk.impact)
+    if "pm25" in avoided:  # tell the farmer what their field kept out of the air (an estimate)
+        notify.send_proactive(bk.phone, FIELD_CLEARED_IMPACT, [name, f"{avoided['pm25']:,.0f}"])
+    else:
+        notify.send_proactive(bk.phone, FIELD_CLEARED, [name])
+    return {
+        "ok": True,
+        "booking": bk.model_dump(mode="json", exclude={"phone"}),
+        "impact": impact.display(avoided),
+    }
 
 
 # ------------------------------------------------------------------ demo (officer, DEMO_MODE)

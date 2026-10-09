@@ -12,6 +12,74 @@ export type FieldStatus = "REGISTERED" | "HARVESTED" | "BOOKED" | "CLEARED" | "F
 /** OFFERED = sent to a baler, waiting for accept/decline. DECLINED / EXPIRED = that offer ended and the field went to the next baler. */
 export type BookingStatus = "OFFERED" | "CONFIRMED" | "DONE" | "CANCELLED" | "DECLINED" | "EXPIRED";
 
+/** kg of each pollutant not emitted (always kg; CO₂ is shown in tonnes). Keys: pm25, pm10, co, co2, bc. */
+export type ImpactKg = Record<string, number>;
+
+/** A sourced emission factor: kg of the pollutant per tonne of rice straw burnt in the open. */
+export interface ImpactFactor {
+  label: string;
+  unit: "kg" | "t";
+  kg_per_tonne: number;
+  source: string;
+  url: string | null;
+}
+
+/** A total ready to print: `value` is in `unit`. */
+export interface ImpactValue {
+  kg: number;
+  value: number;
+  unit: "kg" | "t";
+  label: string;
+  source: string;
+  url: string | null;
+}
+
+export interface TrendPoint {
+  date: string;
+  cumulative: number; // kg of the primary pollutant, running total
+}
+
+export interface ImpactFieldRow {
+  label: string; // masked farmer name ("Gurpreet S.") or "Field in <village>"
+  village: string;
+  acres: number;
+  tonnes: number;
+  cleared_date: string;
+  impact: ImpactKg;
+  trend: TrendPoint[];
+  by_week?: Record<string, ImpactKg>;
+}
+
+export interface ImpactGroup {
+  label: string;
+  village_id?: string;
+  fields: number;
+  acres: number;
+  tonnes: number;
+  impact: ImpactKg;
+  trend: TrendPoint[];
+  by_week?: Record<string, ImpactKg>;
+  rows?: ImpactFieldRow[];
+}
+
+/** GET /api/impact (public). */
+export interface ImpactTableData {
+  configured: boolean;
+  estimate: boolean;
+  burn_fraction: number;
+  version: string | null;
+  formula: string;
+  factors: Record<string, ImpactFactor>;
+  group: "village" | "field";
+  period: "season" | "week";
+  primary: string | null;
+  season: { from: string; to: string };
+  weeks: string[];
+  district: ImpactGroup;
+  groups?: ImpactGroup[];
+  rows?: ImpactFieldRow[];
+}
+
 export interface Me {
   sub: string;
   role: Role;
@@ -91,6 +159,8 @@ export interface BookingRow {
   responded_at?: string | null;
   decline_reason?: string | null;
   decline_note?: string | null;
+  /** Pollution-avoided snapshot, set when the booking is DONE (estimate). */
+  impact?: ImpactKg | null;
   farmer_name?: string | null;
   farmer_phone?: string;
   operator_name?: string | null;
@@ -185,8 +255,11 @@ export interface Supply {
     acres: number;
     price_per_tonne: number | null;
     distance_km: number;
+    impact: ImpactKg;
   }[];
   totals: { booked: number; delivered: number };
+  /** Pollution avoided by the straw this buyer received (estimate). */
+  impact: Record<string, ImpactValue>;
 }
 
 export interface Stop {
@@ -201,6 +274,7 @@ export interface Stop {
   farmer_name: string | null;
   farmer_phone: string;
   village_name: string;
+  impact?: ImpactKg;
 }
 
 export interface Route {
@@ -232,8 +306,9 @@ export interface BalerHistory {
     village_name: string;
     acres: number;
     est_tonnes: number;
+    impact: ImpactKg;
   }[];
-  totals: { fields: number; acres: number; tonnes: number };
+  totals: { fields: number; acres: number; tonnes: number; impact: Record<string, ImpactValue> };
 }
 
 export interface DemandChange {
@@ -261,7 +336,11 @@ export interface Stats {
   fields_saved_after_alert: number;
   alerts_sent: number;
   fires_reported: number;
-  pm25_avoided_kg: number | null;
+  /** Pollution avoided, one entry per pollutant with a sourced factor. Empty = not configured: show nothing. */
+  impact: Record<string, ImpactValue>;
+  impact_factors: Record<string, ImpactFactor>;
+  impact_configured: boolean;
+  impact_estimate: boolean;
   today: string;
   demo_prices: boolean;
 }

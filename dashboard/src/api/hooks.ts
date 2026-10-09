@@ -15,6 +15,8 @@ import type {
   DevAccounts,
   FieldDetail,
   FieldRow,
+  ImpactTableData,
+  ImpactValue,
   Layer,
   OfferRequests,
   Route,
@@ -31,6 +33,14 @@ export const LIVE = 10_000;
 
 export const useStats = (live = true) =>
   useQuery({ queryKey: ["stats"], queryFn: () => api<Stats>("/api/stats"), refetchInterval: live ? LIVE : false });
+
+/** Public impact table (pollution avoided per cleared field, grouped by village). */
+export const useImpactTable = (period: "season" | "week" = "season") =>
+  useQuery({
+    queryKey: ["impact", period],
+    queryFn: () => api<ImpactTableData>("/api/impact", { query: { group: "village", period } }),
+    refetchInterval: LIVE,
+  });
 
 export const useVillages = () =>
   useQuery({
@@ -245,10 +255,13 @@ export function useUpdateOperator() {
 export function useMarkDone() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (bookingId: string) => api<{ ok: boolean }>(`/api/bookings/${bookingId}/done`, { method: "POST" }),
+    mutationFn: (bookingId: string) =>
+      api<{ ok: boolean; impact: Record<string, ImpactValue> }>(`/api/bookings/${bookingId}/done`, { method: "POST" }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["operator"] });
       void qc.invalidateQueries({ queryKey: ["bookings"] });
+      void qc.invalidateQueries({ queryKey: ["stats"] });
+      void qc.invalidateQueries({ queryKey: ["impact"] });
     },
   });
 }

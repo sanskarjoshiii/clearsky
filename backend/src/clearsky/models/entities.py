@@ -133,6 +133,11 @@ class Booking(_Model):
     responded_at: datetime | None = None
     decline_reason: str | None = None
     decline_note: str | None = None
+    # pollution-avoided snapshot written when the booking becomes DONE (domain/impact.py):
+    # kg per pollutant, the tonnes it was computed from, and the fingerprint of the factors used
+    impact: dict[str, float] | None = None
+    impact_tonnes: float | None = None
+    impact_factors_version: str | None = None
 
 
 class Application(_Model):

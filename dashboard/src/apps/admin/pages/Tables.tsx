@@ -7,6 +7,7 @@ import { FieldDrawer } from "../../../components/FieldDrawer";
 import { PageBody, TopBar } from "../../../components/Shell";
 import { Button, Card, Chip, ConfirmDialog, ErrorNote, Input, PageTitle, RiskPill, Segmented, StatusChip, useToast } from "../../../components/ui";
 import { addDays, fmtDay, fmtInr, fmtNum } from "../../../lib/format";
+import { headline } from "../../../lib/impact";
 import { useAlertVillage } from "./Radar";
 
 function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
@@ -133,6 +134,8 @@ export function Bookings() {
   const bookings = useBookings(date);
   const reassign = useReassignOffer();
   const toast = useToast();
+  const factors = stats.data?.impact_factors;
+  const hasImpact = !!factors && Object.keys(factors).length > 0;
   const [show, setShow] = useState<"open" | "all">("open");
   // "open" = work that is still going to happen; "all" adds declined / expired offers (the history)
   const rows = (bookings.data ?? []).filter((b) =>
@@ -185,6 +188,16 @@ export function Bookings() {
               { key: "t", header: "Tonnes", align: "right", render: (b) => fmtNum(b.est_tonnes) },
               { key: "buyer", header: "Straw to", render: (b) => b.buyer_name ?? <span className="text-faint">village storage</span> },
               { key: "pay", header: "Payout (demo)", align: "right", render: (b) => (b.farmer_payout > 0 ? fmtInr(b.farmer_payout) : "free") },
+              ...(hasImpact
+                ? [
+                    {
+                      key: "avoided",
+                      header: "Avoided (est.)",
+                      align: "right" as const,
+                      render: (b: BookingRow) => (b.status === "DONE" ? (headline(b.impact, factors) ?? "–") : <span className="text-faint">–</span>),
+                    },
+                  ]
+                : []),
               {
                 key: "status",
                 header: "Status",

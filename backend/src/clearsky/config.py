@@ -11,6 +11,7 @@ import os
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -106,8 +107,12 @@ class Settings(BaseSettings):
     risk_red_at: int = 60
     risk_yellow_at: int = 40
 
-    # Impact (Phase 6). None means the impact page omits emissions.
-    emission_factor_pm25_kg_per_tonne: float | None = None
+    # Impact (issue #5): sourced emission factors, in kg per tonne of rice straw burnt in the open.
+    #   EMISSION_FACTORS='{"pm25": {"kg_per_tonne": <value>, "source": "<citation>", "url": "<link>"}}'
+    # Pollutants: pm25, pm10, co, co2, bc. NEVER defaulted: the team picks published values and records
+    # the citation (domain/impact.py). A factor without a source is ignored; empty = no impact shown.
+    emission_factors: dict[str, Any] = {}  # entries are validated one by one in domain/impact.py
+    burn_fraction: float = 1.0  # share of unbooked straw assumed burnt; below 1 needs its own citation
 
     # FIRMS
     village_radius_km: float = 3.0

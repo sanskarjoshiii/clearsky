@@ -15,9 +15,9 @@ Legend: ✅ done · 🟡 code complete and tested; a Definition-of-Done item is 
 | 8 Satellite | ⬜ | | Stretch; not started (cut line 1 in PLAN.md). |
 | 9 Demo/Submit | 🟡 | 2026-10-09 | Demo mode API + UI + `demo_clock.py` + runbook done. Not done: 3× runbook on the deployed stack, video, blog, submission (team). |
 
-Post-phase work (GitHub issues, see the log at the end): #2 role apps + routing · #1 self-registration + approval · #3 baler accept/decline, implemented locally (deploy pending like every phase).
+Post-phase work (GitHub issues, see the log at the end): #2 role apps + routing · #1 self-registration + approval · #3 baler accept/decline · #5 pollution avoided. All four are implemented locally; what was and was not verified is listed per issue below.
 
-Test suite on this branch (2026-10-09): **211 backend tests** passed, ruff and mypy clean; **15 Vitest** passed, `tsc` clean. Playwright was run on the complete stack (top branch), not on this branch alone.
+Test suite on this branch (2026-10-09): **222 backend tests** passed, ruff and mypy clean; **24 Vitest** passed, `tsc` clean. Playwright was run on the complete stack (top branch), not on this branch alone.
 
 ---
 
@@ -118,3 +118,10 @@ Test suite on this branch (2026-10-09): **211 backend tests** passed, ruff and m
 - **Verified:** `tests/test_offers.py` (20 tests: offer reserves capacity, expiry cap, auto-accept, requests view, accept + farmer message, decline → next baler, never back to the same baler, max attempts, different date message, expiry job, late accept, off duty, reassign, accept/expiry race, double decline, cancel/reschedule on an offer, stats/supply/reminders, timeline, risk reasons); `test_matching.py` gained the stale-read race with offers; rules bot, agent flow, webhook and alert tests updated to the new wording; full backend suite 211 passed; ruff + mypy clean; dashboard `tsc`, Vitest, build.
 - **Verified later the same day:** Playwright `e2e/offers.spec.ts` (decline → next baler → accept → farmer confirmed) and the updated smoke tests pass.
 - **Deviations:** refused balers are derived from the field's bookings instead of a `Field.declined_balers` list, and a baler whose offer expired is excluded as well; a third template `booking_delayed`; no new `status-index` GSI on `Bookings` (filtered scan, as the issue allowed).
+
+### Issue #5: pollution avoided per cleared field and on the impact page (built 2026-10-09)
+- **Built:** `domain/impact.py` (factors from `EMISSION_FACTORS` with mandatory source, `BURN_FRACTION`, `compute`, `snapshot`, `totals`, `display`, masked public table with trends and by-week), snapshot inside the `mark_done` transaction, `GET /api/impact?group=&period=` (public; SAM route without authorizer), impact in `/api/stats`, `/api/operator/me/route`, `/history`, `/api/buyers/me/supply`, `/api/bookings/{id}/done`; template `field_cleared_impact`; `scripts/backfill_impact.py` (`--dry-run`, `--recompute`, `--local`); SAM parameter `EmissionFactors`. Dashboard: `/impact` (lazy route) with a counter per pollutant, a cumulative season chart, `components/ImpactTable.tsx` (village group chips, expand/collapse, trend sparkline, formula pill, pollutant or week columns, village pagination), `components/Sparkline.tsx`, methodology with citations, admin hint when no factors; admin Bookings "Avoided (est.)" column and field-drawer block; baler Done toast, done-stop line and History totals; buyer KPI and Deliveries column.
+- **Verified:** Vitest `src/test/impact.test.tsx` (units, headline, sparkline, table groups / expand / pagination / week columns / hidden without factors): 9 tests passed; `tsc`; `npm run build` (Impact is its own chunk; main bundle has no charts); ruff clean.
+- **Verified later the same day:** `backend/tests/test_impact.py` (11 tests) and `e2e/impact.spec.ts` pass; mypy clean. The first run found and fixed two things: a malformed factor entry crashed settings instead of being ignored (`emission_factors` is now `dict[str, Any]`, validated entry by entry), and a test used the wrong history window.
+- **Blocked on the team:** the emission factors themselves. Acceptance item "factors chosen from published sources, recorded in config and README §16" is open; the README table is empty on purpose.
+- **Deviations:** `field_cleared_impact` is a separate template instead of a second parameter on `field_cleared`; the admin uses the public `/impact` page for the table (no separate `/admin/impact`); `pm25_avoided_kg` was removed from `/api/stats` in the same change as the UI switch.

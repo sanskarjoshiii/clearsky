@@ -301,7 +301,7 @@ Full list: `IMPLEMENTATION.md` §13.
 - Tonnes of straw routed to buyers
 - Total farmer payouts (₹)
 - Fields moved from RED to GREEN after officer alerts
-- Estimated emissions avoided (using a published emission factor; the source is cited in-app)
+- Estimated pollution avoided per cleared field and in total (PM2.5 and other pollutants), computed only from published emission factors that the team configures with their citation; shown as estimates with the source next to every number
 
 ---
 
@@ -334,6 +334,15 @@ Full list: `IMPLEMENTATION.md` §13.
 - Tribune: Lok Sabha reply on farm fires: https://www.tribuneindia.com/news/india/punjab-haryana-record-90-per-cent-fewer-farm-fire-incidents-in-2025-govt-in-lok-sabha/amp
 - ICC / Vedanta TSPL: paddy straw supply chain: https://iccwbo.org/news-publications/guest-blog/the-last-straw-indias-burning-fields-turn-into-an-energy-opportunity/
 - Outlook Business: evening burning detection gap: https://www.outlookbusiness.com/news/punjab-haryana-evening-stubble-burning-detection-gap-delhi-pollution
+
+### Emission factors (pollution avoided)
+
+**Not chosen yet.** clearsky ships with no emission factor and shows no pollution figure until the team sets `EMISSION_FACTORS` (see `IMPLEMENTATION.md` §5b and `.env.example`). When the factors are agreed, record each one here, and have a second teammate check the value against the paper:
+
+| Pollutant | Value (kg per tonne of rice straw burnt in the open) | Source (author, year, journal, table/page) | Link | Checked by |
+|---|---|---|---|---|
+| PM2.5 | _to be filled_ | | | |
+| (others: PM10, CO, CO₂, black carbon) | | | | |
 
 ## License
 

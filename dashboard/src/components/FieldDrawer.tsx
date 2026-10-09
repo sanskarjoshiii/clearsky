@@ -1,6 +1,7 @@
 import { BellRing, X } from "lucide-react";
-import { useField } from "../api/hooks";
+import { useField, useStats } from "../api/hooks";
 import { daysBetween, fmtDay, fmtInr, fmtNum, fmtTime } from "../lib/format";
+import { impactAmount } from "../lib/impact";
 import { Button, Chip, ErrorNote, IconButton, RiskPill, Skeleton, StatusChip } from "./ui";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -15,7 +16,11 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 /** Field detail drawer: why it is at risk, who farms it (masked), and its booking. */
 export function FieldDrawer({ id, today, onClose, onAlert }: { id: string; today?: string; onClose: () => void; onAlert: (villageId: string) => void }) {
   const q = useField(id);
+  const factors = useStats(false).data?.impact_factors ?? {};
   const f = q.data;
+  // a cleared field: the snapshot stored when its booking was done
+  const cleared = f?.bookings.find((b) => b.status === "DONE" && b.impact);
+  const avoided = Object.entries(factors).filter(([key]) => cleared?.impact?.[key] != null);
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-ink/10 md:bg-transparent" onClick={onClose}>
       <aside
@@ -63,6 +68,20 @@ export function FieldDrawer({ id, today, onClose, onAlert }: { id: string; today
                 </Row>
                 <Row label="Village fire history">{Math.round(f.village.fire_history_score * 100)} / 100</Row>
               </div>
+
+              {cleared && avoided.length ? (
+                <div aria-label="Pollution avoided">
+                  <h3 className="mb-1 text-[13px] font-medium text-muted">Pollution avoided by clearing this field (estimate)</h3>
+                  {avoided.map(([key, factor]) => (
+                    <Row key={key} label={factor.label}>
+                      <span className="tabular">{impactAmount(cleared.impact?.[key] ?? 0, factor.unit)}</span>
+                      <span className="block text-xs text-faint">
+                        {fmtNum(cleared.est_tonnes)} t straw × {fmtNum(factor.kg_per_tonne)} kg/t · {factor.source}
+                      </span>
+                    </Row>
+                  ))}
+                </div>
+              ) : null}
 
               {f.bookings.length ? (
                 <div>

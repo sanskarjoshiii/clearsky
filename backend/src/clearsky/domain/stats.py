@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from clearsky import clock
-from clearsky.config import get_settings
+from clearsky.domain import impact
 from clearsky.models import BookingStatus, FieldStatus, RiskLevel
 from clearsky.models.enums import FIRM_BOOKING_STATUSES
 from clearsky.repo import AlertsRepo, BookingsRepo, FarmersRepo, FieldsRepo
@@ -35,8 +35,8 @@ def compute() -> dict[str, Any]:
         if b.village_id in first_alert and _aware(b.created_at) > first_alert[b.village_id]
     )
 
-    factor = get_settings().emission_factor_pm25_kg_per_tonne
     tonnes_delivered = round(sum(b.est_tonnes for b in done), 1)
+    methodology = impact.describe()
     return {
         "farmers": len(FarmersRepo().list_all()),
         "fields": len(fields),
@@ -63,8 +63,12 @@ def compute() -> dict[str, Any]:
         "fields_saved_after_alert": saved,
         "alerts_sent": len(alerts),
         "fires_reported": sum(1 for f in fields if f.status == FieldStatus.FIRE_REPORTED),
-        # Only when the team supplies a cited factor; otherwise the UI omits emissions.
-        "pm25_avoided_kg": round(tonnes_delivered * factor, 1) if factor is not None else None,
+        # Pollution avoided: only pollutants with a sourced factor; empty when none is configured.
+        # Summed from the snapshots stored on DONE bookings. Always an estimate.
+        "impact": impact.display(impact.totals(done)),
+        "impact_factors": methodology["factors"],
+        "impact_configured": methodology["configured"],
+        "impact_estimate": True,
         "today": clock.today().isoformat(),
         "demo_prices": True,
     }

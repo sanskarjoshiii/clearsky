@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from clearsky import clock
 from clearsky.config import get_settings
+from clearsky.domain import impact
 from clearsky.domain.geo import haversine_km
 from clearsky.domain.pricing import Quote, estimate_tonnes, quote
 from clearsky.logging import get_logger
@@ -595,12 +596,15 @@ def mark_done(booking_id: str, baler_id: str | None = None) -> DoneResult:
     if bk.status != BookingStatus.CONFIRMED:
         return DoneResult(ok=False, error="not_confirmed", booking=bk)
     now = clock.now().isoformat()
+    # Straw that was baled was not burnt: freeze the estimate with today's factors (empty if none are set).
+    snap = impact.snapshot(bk.est_tonnes)
     tx = TxBuilder()
     tx.update(
         "Bookings",
         {"booking_id": booking_id},
-        "SET #s = :done, done_at = :now",
-        values={":done": BookingStatus.DONE.value, ":confirmed": BookingStatus.CONFIRMED.value, ":now": now},
+        "SET #s = :done, done_at = :now" + "".join(f", {k} = :{k}" for k in snap),
+        values={":done": BookingStatus.DONE.value, ":confirmed": BookingStatus.CONFIRMED.value, ":now": now}
+        | {f":{k}": v for k, v in snap.items()},
         names={"#s": "status"},
         condition="#s = :confirmed",
     )
@@ -635,7 +639,7 @@ def mark_done(booking_id: str, baler_id: str | None = None) -> DoneResult:
     from clearsky.domain.risk import refresh_village
 
     refresh_village(bk.village_id)
-    return DoneResult(ok=True, booking=bk.model_copy(update={"status": BookingStatus.DONE}))
+    return DoneResult(ok=True, booking=bk.model_copy(update={"status": BookingStatus.DONE, **snap}))
 
 
 def reschedule(field_id: str, new_harvest_date: date, today: date | None = None) -> BookingResult:

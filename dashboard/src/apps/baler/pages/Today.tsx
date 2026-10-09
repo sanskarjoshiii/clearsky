@@ -2,14 +2,16 @@ import { BellRing, Check, ChevronLeft, ChevronRight, Phone } from "lucide-react"
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useMarkDone, useOperatorAlerts, useOperatorMe, useRoute, useStats, useUpdateOperator } from "../../../api/hooks";
-import type { Stop } from "../../../api/types";
+import type { ImpactFactor, Stop } from "../../../api/types";
 import { MapView } from "../../../components/MapView";
 import { Button, Card, ConfirmDialog, cx, Empty, ErrorNote, Skeleton, Toggle, useToast } from "../../../components/ui";
 import { addDays, fmtDayLong, fmtNum } from "../../../lib/format";
+import { headline } from "../../../lib/impact";
 import { BalerPage } from "../Layout";
 
-function StopCard({ stop, onDone }: { stop: Stop; onDone: () => void }) {
+function StopCard({ stop, onDone, factors }: { stop: Stop; onDone: () => void; factors?: Record<string, ImpactFactor> }) {
   const done = stop.status === "DONE";
+  const avoided = done ? headline(stop.impact, factors) : null;
   return (
     <li className={cx("rounded-[var(--radius-card)] border p-4", done ? "border-ok-line bg-ok-soft/40" : "border-line bg-canvas")}>
       <div className="flex items-start gap-3">
@@ -36,7 +38,10 @@ function StopCard({ stop, onDone }: { stop: Stop; onDone: () => void }) {
         </a>
       </div>
       {done ? (
-        <div className="mt-3 text-sm font-medium text-ok">Field cleared · खेत साफ़ ✅</div>
+        <div className="mt-3 text-sm font-medium text-ok">
+          Field cleared · खेत साफ़ ✅
+          {avoided ? <span className="block text-[13px] font-normal text-muted">{avoided} avoided (estimate)</span> : null}
+        </div>
       ) : (
         <Button variant="primary" size="lg" className="mt-3 w-full" onClick={onDone}>
           <Check className="size-5" /> Done · हो गया
@@ -160,7 +165,7 @@ export function Today() {
               ) : null}
               <ul className="space-y-3">
                 {stops.map((s) => (
-                  <StopCard key={s.booking_id} stop={s} onDone={() => setConfirm(s)} />
+                  <StopCard key={s.booking_id} stop={s} onDone={() => setConfirm(s)} factors={stats.data?.impact_factors} />
                 ))}
               </ul>
             </Card>
@@ -183,8 +188,13 @@ export function Today() {
         onConfirm={() =>
           confirm &&
           markDone.mutate(confirm.booking_id, {
-            onSuccess: () => {
-              toast("Field cleared. The farmer got a WhatsApp message.");
+            onSuccess: (r) => {
+              const first = Object.values(r.impact ?? {})[0];
+              toast(
+                first
+                  ? `Field cleared · ~${fmtNum(first.value)} ${first.unit} ${first.label} avoided (estimate). The farmer got a WhatsApp message.`
+                  : "Field cleared. The farmer got a WhatsApp message.",
+              );
               setConfirm(null);
             },
             onError: (e) => toast(e.message, "error"),

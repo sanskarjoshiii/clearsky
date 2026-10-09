@@ -20,7 +20,7 @@ Three role apps, each with its own base path, layout, navigation and lazy-loaded
 | | `/buyer/demand` | Demand / price / radius form + change history |
 | | `/buyer/profile` | Plant details, sign out |
 | | `/admin/approvals` | Self-registered balers and buyers: table, drawer with map pin, **Approve** / **Reject (reason)**; "N pending" badge on the rail |
-| Public | `/impact`, `/login` | Live counters for the video; sign-in |
+| Public | `/impact`, `/login` | Live counters for the video; with sourced emission factors also pollution avoided: per-pollutant totals, season chart, the impact table (village groups, trend, formula, pollutant/week columns) and its methodology; sign-in |
 | Registration | `/register` | Create an account: role cards → Cognito sign-up + email code → application form |
 | | `/pending` | Waiting room: under review / rejected with reason + resubmit; moves to the role app by itself on approval |
 
