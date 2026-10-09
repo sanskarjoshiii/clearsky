@@ -1,12 +1,12 @@
 import { BellRing, Flame, Radar as RadarIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useFields, useLayer, useSendAlert, useStats, useVillages } from "../../api/hooks";
-import type { FieldRow, Village } from "../../api/types";
-import { useAuth } from "../../auth/AuthProvider";
-import { DataTable } from "../../components/DataTable";
-import { FieldDrawer } from "../../components/FieldDrawer";
-import { MapView } from "../../components/MapView";
-import { PageBody, TopBar } from "../../components/Shell";
+import { useFields, useLayer, useSendAlert, useStats, useVillages } from "../../../api/hooks";
+import type { FieldRow, Village } from "../../../api/types";
+import { useAuth } from "../../../auth/AuthProvider";
+import { DataTable } from "../../../components/DataTable";
+import { FieldDrawer } from "../../../components/FieldDrawer";
+import { MapView } from "../../../components/MapView";
+import { PageBody, TopBar } from "../../../components/Shell";
 import {
   Button,
   Card,
@@ -21,8 +21,8 @@ import {
   Skeleton,
   Toggle,
   useToast,
-} from "../../components/ui";
-import { daysBetween, fmtDay, fmtInt, fmtNum } from "../../lib/format";
+} from "../../../components/ui";
+import { daysBetween, fmtDay, fmtInt, fmtNum } from "../../../lib/format";
 
 /** Confirm + send a village alert. Shared by the radar, the drawer and the fields table. */
 export function useAlertVillage(villages: Village[] | undefined) {

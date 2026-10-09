@@ -1,23 +1,30 @@
 import { Factory, Landmark, Tractor } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router";
+import { Navigate, useLocation, useNavigate } from "react-router";
 import { useDevAccounts } from "../api/hooks";
 import type { Role } from "../api/types";
-import { homeFor, useAuth } from "../auth/AuthProvider";
+import { landingFor, useAuth } from "../auth/AuthProvider";
 import { Logo } from "../components/Shell";
 import { Button, ErrorNote, Field, Input, Skeleton } from "../components/ui";
 import { env } from "../env";
 
 const ROLES: { role: Role; title: string; hint: string; icon: typeof Factory }[] = [
-  { role: "officer", title: "District officer", hint: "Burn Risk Radar, alerts, every table", icon: Landmark },
-  { role: "operator", title: "Baler operator", hint: "Today's stops, route, mark fields done", icon: Tractor },
-  { role: "buyer", title: "Industry buyer", hint: "Straw demand, price and incoming supply", icon: Factory },
+  { role: "officer", title: "Admin", hint: "District officer: Burn Risk Radar, alerts, every table", icon: Landmark },
+  { role: "operator", title: "Baler", hint: "Today's stops, route, mark fields done", icon: Tractor },
+  { role: "buyer", title: "Buyer", hint: "Industry: straw demand, price and incoming supply", icon: Factory },
 ];
+
+/** The page the visitor asked for before being sent here (set by RequireRole). */
+function useFrom(): string | null {
+  const state = useLocation().state as { from?: string } | null;
+  return state?.from ?? null;
+}
 
 function DevLogin() {
   const accounts = useDevAccounts(true);
   const { signInDev } = useAuth();
   const navigate = useNavigate();
+  const from = useFrom();
   const [pick, setPick] = useState<Record<Role, string>>({ officer: "", operator: "", buyer: "" });
   const [busy, setBusy] = useState<Role | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -29,7 +36,7 @@ function DevLogin() {
     setError(null);
     try {
       const me = await signInDev(role, id);
-      navigate(homeFor(me.role));
+      navigate(landingFor(me.role, from), { replace: true });
     } catch (e) {
       setError(e);
     } finally {
@@ -88,6 +95,7 @@ function DevLogin() {
 function CognitoLogin() {
   const { signInCognito } = useAuth();
   const navigate = useNavigate();
+  const from = useFrom();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -98,7 +106,7 @@ function CognitoLogin() {
     setError(null);
     try {
       const me = await signInCognito(email.trim(), password);
-      navigate(homeFor(me.role));
+      navigate(landingFor(me.role, from), { replace: true });
     } catch (err) {
       setError(err);
     } finally {
@@ -124,7 +132,8 @@ function CognitoLogin() {
 
 export function Login() {
   const { me, loading } = useAuth();
-  if (!loading && me) return <Navigate to={homeFor(me.role)} replace />;
+  const from = useFrom();
+  if (!loading && me) return <Navigate to={landingFor(me.role, from)} replace />;
   return (
     <div className="flex min-h-dvh items-center justify-center bg-frame px-4 py-10">
       <div className="w-full max-w-[520px] animate-rise rounded-[var(--radius-canvas)] bg-canvas p-6 shadow-[var(--shadow-canvas)] sm:p-8">

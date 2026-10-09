@@ -110,6 +110,27 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
+/**
+ * The three role apps. Code keeps the Cognito group names (officer / operator / buyer); people see
+ * Admin / Baler / Buyer. `home` is the single source of each role's landing page.
+ */
+export const APPS: Record<Role, { home: string; label: string; plural: string }> = {
+  officer: { home: "/admin", label: "Admin", plural: "admins" },
+  operator: { home: "/baler", label: "Baler", plural: "balers" },
+  buyer: { home: "/buyer", label: "Buyer", plural: "buyers" },
+};
+
 export function homeFor(role: Role): string {
-  return role === "officer" ? "/officer" : role === "buyer" ? "/buyer" : "/operator";
+  return APPS[role].home;
+}
+
+/** Which role's app a path belongs to (null for public pages). */
+export function appOf(pathname: string): Role | null {
+  const hit = (Object.keys(APPS) as Role[]).find((r) => pathname === APPS[r].home || pathname.startsWith(`${APPS[r].home}/`));
+  return hit ?? null;
+}
+
+/** Where to send someone after sign-in: the page they asked for if it is theirs, else their home. */
+export function landingFor(role: Role, from?: string | null): string {
+  return from && appOf(from.split(/[?#]/)[0] ?? "") === role ? from : homeFor(role);
 }

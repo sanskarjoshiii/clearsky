@@ -22,18 +22,19 @@ clearsky stops paddy stubble burning in Punjab/Haryana by fixing the logistics: 
 | Area | State |
 |---|---|
 | Phases 0–7, 9 | 🟡 **Code complete and tested locally end to end.** Every remaining DoD item needs a team input (LLM key, AWS deploy, Meta/WhatsApp, FIRMS key). Phase 8 (satellite, stretch) not started. |
-| Backend | `backend/src/clearsky`: config, clock, models, repos (11 tables), matcher, pricing, risk, alerts, stats, demo, FIRMS, seed; **farmer agent** (Strands, any LLM via `LLM_PROVIDER`, plus a deterministic **rules bot** default/fallback); WhatsApp channel (`whatsapp`, `notify`, `voice`, `templates`); Lambdas: webhook, processor, api, risk_job, reminders, health, firms_ingest; `auth.py`. 177 tests, 91% coverage. |
-| Dashboard | `dashboard/`: officer radar + Fields/Bookings/Balers/Buyers/Demo, buyer, operator (phone-first), public impact, docked **farmer simulator**. Design system from `designs/` → `docs/design-system.md`. Vitest 8 + Playwright 3 green. |
+| GitHub issues | 🟡 Issues #2 are implemented on this branch (2026-10-09). The work is split into stacked branches: `issue-2-role-apps-routing` → `issue-1-registration-approval` → `issue-3-baler-accept-decline` → `issue-5-pollution-avoided` → `feature/separate-role-logins`; each builds on the one before. What was verified: `PROGRESS.md` (issue log). |
+| Backend | `backend/src/clearsky`: config, clock, models, repos (11 tables), matcher, pricing, risk, alerts, stats, demo, FIRMS, seed; **farmer agent** (Strands, any LLM via `LLM_PROVIDER`, plus a deterministic **rules bot** default/fallback); WhatsApp channel (`whatsapp`, `notify`, `voice`, `templates`); Lambdas: webhook, processor, api, risk_job, reminders, health, firms_ingest; `auth.py`. Test counts: `PROGRESS.md`. |
+| Dashboard | `dashboard/`: **three role apps**, each with its own layout, nav, 404 and lazy chunk (`src/apps/<role>/`): **Admin** `/admin` (radar + Fields/Bookings/Balers/Buyers/Demo, docked **farmer simulator**), **Baler** `/baler` (phone-first: Today/Schedule/History/Profile), **Buyer** `/buyer` (Overview/Deliveries + CSV/Demand + history/Profile); public `/impact`, `/login`. Design system from `designs/` → `docs/design-system.md`. |
 | Infra | `infra/template.yaml`: tables, buckets, SQS + DLQ, Cognito (officer/buyer/operator), JWT HTTP API, 7 functions, hourly + 18:00 IST schedules, alarms, deps layer. `sam validate --lint` ✅, `sam build` ✅. **Nothing deployed.** |
 | Data | `data/seed/*.json` (seed 42): 31 places (approx coords), 10 balers, 3 fictional buyers, 60 synthetic fields (10 RED candidates: 3–6 days to sowing). No FIRMS layer yet. |
 | AWS account | Friend's account 416121583611, ap-south-1. **The access key on the dev laptop now fails (`InvalidClientTokenId`) → new key needed.** Bedrock unusable → LLM API key instead. Transcribe was `SubscriptionRequired` → optional (`STT_PROVIDER`). Polly Kajal ✅ (2026-10-07). |
-| Git | Remote `https://github.com/sanskarjoshiii/clearsky`. `main` pushed; issues #1–#5 tracked on GitHub (texts also in `docs/issues/`). |
-| Dev machine | Windows: no `make`/`sam`/Docker → `.\make.ps1`; uv provides Python 3.12; local stack uses an in-process moto DynamoDB. |
+| Git | Remote `https://github.com/sanskarjoshiii/clearsky`. `main` pushed; issues #1–#5 tracked on GitHub (texts also in `docs/issues/`). Issues #2 are on this branch; #4 (production setup) is assigned to @akkki007. |
+| Dev machine | Windows: no `make`/`sam`/Docker → `.\make.ps1`; uv provides Python 3.12; local stack uses an in-process moto DynamoDB. Windows Application Control blocked `backend\.venv\Scripts\python.exe` for a while on 2026-10-09 and later let it run again; if `uv run` fails with "os error 4551", that is the cause. |
 
 Phase status (mirror of `PROGRESS.md`): 0 🟡 · 1 🟡 · 2 🟡 · 3 🟡 · 4 🟡 · 5 🟡 · 6 🟡 · 7 🟡 · 8 ⬜ (stretch) · 9 🟡
 
 ### How to run things (Windows: `.\make.ps1 X`; macOS/Linux: `make X`)
-- **Whole system locally, no keys:** `dev` (API on :8787: mock DB + seed + simulator + dev login) and `dashboard` (http://localhost:5173). Dev URLs: `/officer?as=officer.Sangrur&sim=1`, `/operator?as=operator.B01`, `/buyer?as=buyer.BY03`.
+- **Whole system locally, no keys:** `dev` (API on :8787: mock DB + seed + simulator + dev login) and `dashboard` (http://localhost:5173). Dev URLs: `/admin?as=officer.Sangrur&sim=1`, `/baler?as=operator.B01`, `/buyer?as=buyer.BY03`. Old `/officer…` and `/operator` links redirect.
 - `install` · `lint` · `format` · `test` · `cov` · `e2e` · `validate` · `build` (layer + sam build) · `check-aws`
 - `chat`: farmer agent in the terminal (rules bot, or the LLM configured in `.env`). `book-all`: matcher dry run. `gen-seed`. `seed` (deployed tables). `firms` (needs MAP_KEY or CSVs).
 - `deploy` refuses without `CONFIRM=yes` / `-Confirm yes` (team approval).
@@ -46,7 +47,7 @@ Phase status (mirror of `PROGRESS.md`): 0 🟡 · 1 🟡 · 2 🟡 · 3 🟡 · 
 - **Agent** (`agent/`): `LLM_PROVIDER` = `rules` (default, no LLM) | `openai` (+ any OpenAI-compatible via `LLM_BASE_URL`) | `anthropic` | `gemini` | `bedrock`. Same 9 tools for all; tools close over the verified phone; the rules bot answers if the LLM fails.
 - **Risk** (`domain/risk.py`): RED ≥ 60 (changed from 70, see `IMPLEMENTATION.md` §6), YELLOW ≥ 40. Red needs FIRMS fire history or "no baler free".
 - **Matcher** (`domain/matching.py`): baler-day by distance + delay − village-cluster bonus; buyer by net price; one DynamoDB transaction (capacity, booking, field, buyer) prevents double booking; retries next-best on conflict.
-- **Dashboard (Cognito groups `officer`, `buyer`, `operator`):** `/officer` radar · `/buyer` · `/operator` (simple, mobile) · `/impact`. *(Phases 5–7.)*
+- **Dashboard (Cognito groups `officer`, `buyer`, `operator`; UI names Admin / Baler / Buyer):** `/admin/*` · `/baler/*` (simple, mobile) · `/buyer/*` · `/impact`. One router, three lazy apps (`src/App.tsx`); `homeFor(role)` is the single source of landing pages; `RequireRole` handles signed-out (→ login → back) and wrong role (→ own home + notice).
 - **Lambda packaging:** dependencies in a layer built for Linux arm64 by uv; function zip is only our code.
 
 Full design: `IMPLEMENTATION.md`. Build order: `PLAN.md`. Phase logs and deviations: `PROGRESS.md`.
@@ -77,6 +78,11 @@ Full design: `IMPLEMENTATION.md`. Build order: `PLAN.md`. Phase logs and deviati
 | (earlier) | AWS serverless stack: Lambda, API GW, SQS, DynamoDB, Bedrock + Strands, Transcribe, Polly, Location, Cognito, Amplify, SAM. | Hackathon criteria, no idle cost | `README.md` §7 |
 | (earlier) | Demo district Sangrur; buyers fictional; prices labeled demo. | Honest demo data | `IMPLEMENTATION.md` §5, §14 |
 
+| 2026-10-09 | Role apps at `/admin`, `/baler`, `/buyer`; UI says Admin / Baler / Buyer, code and Cognito keep `officer` / `operator` / `buyer`. Shared modules stay in `src/components`, `src/api`, `src/lib`, `src/auth` (not moved to `src/shared/`). | Issue #2; renaming Cognito groups would be a breaking change; moving shared folders is churn with no user benefit | `dashboard/src/apps/*`, `dashboard/src/App.tsx` |
+| 2026-10-09 | Chunks split with prioritised `codeSplitting` groups (React first). | Otherwise React landed in the charts chunk and every role downloaded the charts | `dashboard/vite.config.ts` |
+| 2026-10-09 | Buyer demand history lives in the `Settings` table (`demand_history#<buyer_id>`, last 20), not on the `Buyer` row. | Keeps the committed seed files byte-identical | `repo/settings_repo.py` |
+| 2026-10-09 | The local dev server handles one request at a time (lock). | The Powertools resolver keeps the current event on a shared object; parallel browser requests could read each other's token/query (found by Playwright) | `backend/scripts/dev_server.py` |
+
 ## 5. Open questions (ask the team; don't guess)
 
 How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-in reply template).
@@ -100,6 +106,8 @@ How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-
 | P4 | Video, blog, testing |
 
 ## 7. Changelog (newest first)
+
+- 2026-10-09 · Claude Code · **Issue #2** (role apps + routing): pages moved with `git mv` into `dashboard/src/apps/{admin,baler,buyer}`; lazy route chunks; `RequireRole` (login → back to the requested URL; wrong role → own home + notice); `/officer/*` and `/operator` redirect; baler app phone-first with Schedule / History / Profile; buyer app with Deliveries (CSV), Demand (history), Profile; new endpoints `/api/operator/me/schedule`, `/history`, `/api/buyers/me/demand/history`, operator profile fields; Vitest scoped to `src/`; dev server serialises requests · `dashboard/src/**`, `dashboard/e2e/*`, `dashboard/vite.config.ts`, `backend/src/clearsky/handlers/api.py`, `backend/src/clearsky/repo/settings_repo.py`, `backend/scripts/dev_server.py`, `backend/tests/test_api.py`, docs
 
 - 2026-10-09 · Claude Code · Pushed all local commits to `main`; created GitHub issues from `docs/issues/` (@kamranp03: registration/approval, role apps + routing, baler accept/reject, pollution impact; @akkki007: production setup + WhatsApp on own number) · `CONTEXT.md`
 

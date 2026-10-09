@@ -24,7 +24,7 @@ test("officer signs in, sees the radar map and alerts a village", async ({ page 
 
 test("farmer books in the WhatsApp simulator", async ({ page }) => {
   const phone = `+9199999${String(Date.now()).slice(-5)}`;
-  await page.goto("/officer?as=officer.Sangrur&sim=1");
+  await page.goto("/admin?as=officer.Sangrur&sim=1");
   const panel = page.locator("aside").filter({ hasText: "Farmer on WhatsApp" });
   await expect(panel).toBeVisible();
   await panel.getByLabel("Farmer phone number").fill(phone);
@@ -46,13 +46,9 @@ test("operator sees the new stop and marks it done", async ({ page, request }) =
   const mine = bookings.bookings.find((b) => b.farmer_name === farmer && b.status === "CONFIRMED");
   expect(mine).toBeTruthy();
 
-  await page.goto(`/operator?as=operator.${mine!.baler_id}`);
+  // open the baler's route on the booking's day
+  await page.goto(`/baler?as=operator.${mine!.baler_id}&date=${mine!.date}`);
   await expect(page.getByText("Today's stops")).toBeVisible();
-  // move to the booking's day with the date switcher
-  for (let i = 0; i < 10 && !(await page.getByText(farmer).isVisible()); i++) {
-    await page.getByRole("button", { name: "Next day" }).click();
-    await page.waitForTimeout(600);
-  }
   const stop = page.locator("li", { hasText: farmer });
   await expect(stop).toBeVisible();
   await stop.getByRole("button", { name: /Done/ }).click();

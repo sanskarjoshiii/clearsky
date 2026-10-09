@@ -16,19 +16,25 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1600,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes("maplibre-gl")) return "maplibre";
-          if (id.includes("recharts") || id.includes("d3-")) return "charts";
-          if (id.includes("aws-amplify") || id.includes("@aws-amplify")) return "amplify";
-          return undefined;
+        // Prioritised groups: React must win over "charts", otherwise it is pulled into the charts
+        // chunk as a dependency of recharts and every role downloads the charts just to get React.
+        codeSplitting: {
+          groups: [
+            { name: "react", test: /node_modules[\/](react|react-dom|scheduler|react-router|@tanstack)[\/]/, priority: 30 },
+            { name: "maplibre", test: /maplibre-gl/, priority: 20 },
+            { name: "amplify", test: /aws-amplify|@aws-amplify/, priority: 20 },
+            { name: "charts", test: /node_modules[\/](recharts|d3-[^\/]+|victory-vendor)[\/]/, priority: 10 },
+          ],
         },
       },
     },
   },
   test: {
     environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"], // e2e/*.spec.ts belong to Playwright
+
     setupFiles: ["./src/test/setup.ts"],
     css: false,
   },

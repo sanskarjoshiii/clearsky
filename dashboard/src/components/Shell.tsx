@@ -1,49 +1,23 @@
-import {
-  BarChart3,
-  CalendarCheck,
-  Factory,
-  FlaskConical,
-  LogOut,
-  MessageCircle,
-  Radar,
-  Route as RouteIcon,
-  Table2,
-  Tractor,
-  X,
-} from "lucide-react";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { LogOut, MessageCircle, X, type LucideIcon } from "lucide-react";
+import { createContext, useContext, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router";
 import { useDemoClock } from "../api/hooks";
-import type { Role } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { fmtDay, initials } from "../lib/format";
-import { Simulator } from "./Simulator";
 import { cx, IconButton } from "./ui";
 
-interface NavItem {
+export interface NavItem {
   to: string;
   label: string;
-  icon: typeof Radar;
+  /** Short label for the phone bottom bar (defaults to the first word of `label`). */
+  short?: string;
+  icon: LucideIcon;
   end?: boolean;
-}
-
-function navFor(role: Role, demo: boolean): NavItem[] {
-  if (role === "officer") {
-    return [
-      { to: "/officer", label: "Burn Risk Radar", icon: Radar, end: true },
-      { to: "/officer/fields", label: "Fields", icon: Table2 },
-      { to: "/officer/bookings", label: "Bookings", icon: CalendarCheck },
-      { to: "/officer/balers", label: "Balers", icon: Tractor },
-      { to: "/officer/buyers", label: "Buyers", icon: Factory },
-      ...(demo ? [{ to: "/officer/demo", label: "Demo controls", icon: FlaskConical }] : []),
-      { to: "/impact", label: "Impact", icon: BarChart3 },
-    ];
-  }
-  if (role === "buyer") return [{ to: "/buyer", label: "Straw supply", icon: Factory, end: true }];
-  return [{ to: "/operator", label: "Today's route", icon: RouteIcon, end: true }];
+  badge?: number;
 }
 
 const PanelContext = createContext<{ open: boolean; setOpen: (v: boolean) => void }>({ open: false, setOpen: () => undefined });
+export const SimPanelProvider = PanelContext.Provider;
 export const useSimPanel = () => useContext(PanelContext);
 
 /** The clearsky logo (public/logo.png, already cut to a circle). */
@@ -51,128 +25,126 @@ export function Logo({ size = "size-9" }: { size?: string }) {
   return <img src="/logo.png" alt="clearsky" className={`${size} shrink-0 rounded-full`} draggable={false} />;
 }
 
-/** App frame: icon rail · floating canvas · docked farmer simulator (officer, simulator mode). */
-export function Shell() {
+function Badge({ n }: { n: number }) {
+  return (
+    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-semibold leading-none text-canvas tabular">
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
+/**
+ * Desktop-first app frame shared by the admin and buyer apps: icon rail · floating canvas · optional
+ * docked panel. Each app passes its own navigation, so no role ever sees another role's items.
+ * `panel` (admin only: the farmer simulator) is shown when the sim panel context says it is open.
+ */
+export function RailLayout({ items, panel, label }: { items: NavItem[]; panel?: ReactNode; label: string }) {
   const { me, signOut } = useAuth();
-  const demo = !!me?.config.demo_mode;
-  const canSimulate = me?.role === "officer" && me.config.wa_mode === "simulator";
-  const [open, setOpen] = useState<boolean>(() => {
-    try {
-      if (new URLSearchParams(window.location.search).get("sim") === "1") return true;
-      return localStorage.getItem("clearsky.simOpen") === "1";
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem("clearsky.simOpen", open ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [open]);
+  const { open, setOpen } = useSimPanel();
   if (!me) return null;
-  const items = navFor(me.role, demo);
+  const canSimulate = panel !== undefined;
   const panelOpen = canSimulate && open;
 
   return (
-    <PanelContext.Provider value={{ open: panelOpen, setOpen }}>
-      <div className="flex h-screen w-full overflow-hidden bg-frame">
-        {/* rail */}
-        <nav className="hidden w-[60px] shrink-0 flex-col items-center gap-1 py-4 md:flex" aria-label="Main">
-          <Logo />
-          <div className="mt-5 flex flex-col gap-1">
-            {items.map((it) => (
-              <NavLink
-                key={it.to}
-                to={it.to}
-                end={it.end}
-                title={it.label}
-                aria-label={it.label}
-                className={({ isActive }) =>
-                  cx(
-                    "flex size-10 items-center justify-center rounded-[10px] transition-colors",
-                    isActive ? "bg-canvas text-ink shadow-[var(--shadow-canvas)]" : "text-faint hover:text-ink",
-                  )
-                }
-              >
-                <it.icon className="size-[19px]" strokeWidth={1.8} />
-              </NavLink>
-            ))}
-          </div>
-          <div className="mt-auto flex flex-col items-center gap-3">
-            {canSimulate ? (
-              <button
-                onClick={() => setOpen(!open)}
-                title="Farmer simulator (WhatsApp)"
-                aria-label="Toggle farmer simulator"
-                aria-pressed={open}
-                className={cx(
-                  "flex size-9 items-center justify-center rounded-full text-canvas transition-transform hover:scale-105",
-                  "bg-[radial-gradient(circle_at_30%_30%,var(--color-agent-line),var(--color-agent)_55%,var(--color-agent-strong))]",
-                  open && "ring-2 ring-agent-line ring-offset-2 ring-offset-frame",
-                )}
-              >
-                <MessageCircle className="size-4" />
-              </button>
-            ) : null}
-            <button
-              onClick={() => void signOut()}
-              title={`${me.display_name} · sign out`}
-              aria-label="Sign out"
-              className="group relative flex size-9 items-center justify-center rounded-full bg-agent-soft text-[13px] font-semibold text-agent-strong"
-            >
-              <span className="group-hover:hidden">{initials(me.display_name)}</span>
-              <LogOut className="hidden size-4 group-hover:block" />
-            </button>
-          </div>
-        </nav>
-
-        {/* canvas */}
-        <main className="flex min-w-0 flex-1 flex-col pb-[60px] md:py-2 md:pb-2 md:pr-2">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas md:rounded-[var(--radius-canvas)] md:shadow-[var(--shadow-canvas)]">
-            <Outlet />
-          </div>
-        </main>
-
-        {/* docked simulator */}
-        {panelOpen ? (
-          <aside className="fixed inset-0 z-40 flex flex-col bg-canvas md:static md:z-auto md:my-2 md:mr-2 md:w-[380px] md:shrink-0 md:rounded-[var(--radius-canvas)] md:shadow-[var(--shadow-canvas)]">
-            <Simulator onClose={() => setOpen(false)} />
-          </aside>
-        ) : null}
-
-        {/* phone bottom nav */}
-        <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[60px] items-stretch justify-around border-t border-line bg-canvas md:hidden" aria-label="Main">
-          {items.slice(0, 5).map((it) => (
+    <div className="flex h-screen w-full overflow-hidden bg-frame">
+      {/* rail */}
+      <nav className="hidden w-[60px] shrink-0 flex-col items-center gap-1 py-4 md:flex" aria-label={label}>
+        <Logo />
+        <div className="mt-5 flex flex-col gap-1">
+          {items.map((it) => (
             <NavLink
               key={it.to}
               to={it.to}
               end={it.end}
-              className={({ isActive }) => cx("flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", isActive ? "text-ink" : "text-faint")}
+              title={it.label}
+              aria-label={it.badge ? `${it.label} (${it.badge})` : it.label}
+              className={({ isActive }) =>
+                cx(
+                  "relative flex size-10 items-center justify-center rounded-[10px] transition-colors",
+                  isActive ? "bg-canvas text-ink shadow-[var(--shadow-canvas)]" : "text-faint hover:text-ink",
+                )
+              }
             >
-              <it.icon className="size-5" strokeWidth={1.8} />
-              <span className="truncate">{it.label.split(" ")[0]}</span>
+              <it.icon className="size-[19px]" strokeWidth={1.8} />
+              {it.badge ? <Badge n={it.badge} /> : null}
             </NavLink>
           ))}
+        </div>
+        <div className="mt-auto flex flex-col items-center gap-3">
           {canSimulate ? (
-            <button onClick={() => setOpen(true)} className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] text-agent">
-              <MessageCircle className="size-5" />
-              Farmer
+            <button
+              onClick={() => setOpen(!open)}
+              title="Farmer simulator (WhatsApp)"
+              aria-label="Toggle farmer simulator"
+              aria-pressed={open}
+              className={cx(
+                "flex size-9 items-center justify-center rounded-full text-canvas transition-transform hover:scale-105",
+                "bg-[radial-gradient(circle_at_30%_30%,var(--color-agent-line),var(--color-agent)_55%,var(--color-agent-strong))]",
+                open && "ring-2 ring-agent-line ring-offset-2 ring-offset-frame",
+              )}
+            >
+              <MessageCircle className="size-4" />
             </button>
           ) : null}
-          <button onClick={() => void signOut()} className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] text-faint">
-            <LogOut className="size-5" />
-            Sign out
+          <button
+            onClick={() => void signOut()}
+            title={`${me.display_name} · sign out`}
+            aria-label="Sign out"
+            className="group relative flex size-9 items-center justify-center rounded-full bg-agent-soft text-[13px] font-semibold text-agent-strong"
+          >
+            <span className="group-hover:hidden">{initials(me.display_name)}</span>
+            <LogOut className="hidden size-4 group-hover:block" />
           </button>
-        </nav>
-      </div>
-    </PanelContext.Provider>
+        </div>
+      </nav>
+
+      {/* canvas */}
+      <main className="flex min-w-0 flex-1 flex-col pb-[60px] md:py-2 md:pb-2 md:pr-2">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas md:rounded-[var(--radius-canvas)] md:shadow-[var(--shadow-canvas)]">
+          <Outlet />
+        </div>
+      </main>
+
+      {/* docked panel */}
+      {panelOpen ? (
+        <aside className="fixed inset-0 z-40 flex flex-col bg-canvas md:static md:z-auto md:my-2 md:mr-2 md:w-[380px] md:shrink-0 md:rounded-[var(--radius-canvas)] md:shadow-[var(--shadow-canvas)]">
+          {panel}
+        </aside>
+      ) : null}
+
+      {/* phone bottom nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[60px] items-stretch justify-around border-t border-line bg-canvas md:hidden" aria-label={label}>
+        {items.slice(0, canSimulate ? 4 : 5).map((it) => (
+          <NavLink
+            key={it.to}
+            to={it.to}
+            end={it.end}
+            className={({ isActive }) => cx("flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", isActive ? "text-ink" : "text-faint")}
+          >
+            <span className="relative">
+              <it.icon className="size-5" strokeWidth={1.8} />
+              {it.badge ? <Badge n={it.badge} /> : null}
+            </span>
+            <span className="max-w-full truncate">{it.short ?? it.label.split(" ")[0]}</span>
+          </NavLink>
+        ))}
+        {canSimulate ? (
+          <button onClick={() => setOpen(true)} className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] text-agent">
+            <MessageCircle className="size-5" />
+            Farmer
+          </button>
+        ) : null}
+        <button onClick={() => void signOut()} className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] text-faint">
+          <LogOut className="size-5" />
+          Sign out
+        </button>
+      </nav>
+    </div>
   );
 }
 
 /** Top bar inside the canvas: breadcrumbs + page actions + demo clock. */
-export function TopBar({ crumbs, actions }: { crumbs: { label: string; icon?: typeof Radar }[]; actions?: ReactNode }) {
+export function TopBar({ crumbs, actions }: { crumbs: { label: string; icon?: LucideIcon }[]; actions?: ReactNode }) {
   const { me } = useAuth();
   const clock = useDemoClock(!!me?.config.demo_mode && me.role === "officer");
   const { open, setOpen } = useSimPanel();

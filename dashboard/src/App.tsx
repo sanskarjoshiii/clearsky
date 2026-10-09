@@ -1,37 +1,19 @@
-import { Navigate, Outlet, createBrowserRouter } from "react-router";
-import type { Role } from "./api/types";
-import { homeFor, useAuth } from "./auth/AuthProvider";
-import { Shell } from "./components/Shell";
-import { Skeleton } from "./components/ui";
-import { BuyerPage } from "./pages/Buyer";
 import { Impact } from "./pages/Impact";
+import { Navigate, createBrowserRouter, useLocation } from "react-router";
+import { homeFor, useAuth } from "./auth/AuthProvider";
+import { Loading, RequireRole } from "./auth/RequireRole";
 import { Login } from "./pages/Login";
-import { OperatorPage } from "./pages/Operator";
-import { Demo } from "./pages/officer/Demo";
-import { Radar } from "./pages/officer/Radar";
-import { Balers, Bookings, Buyers, Fields } from "./pages/officer/Tables";
-
-function Loading() {
-  return (
-    <div className="flex h-dvh items-center justify-center bg-frame">
-      <Skeleton className="h-10 w-40" />
-    </div>
-  );
-}
-
-/** Signed-in users of the given role(s) only; others go to login or their own home. */
-function RequireRole({ roles }: { roles: Role[] }) {
-  const { me, loading } = useAuth();
-  if (loading) return <Loading />;
-  if (!me) return <Navigate to="/login" replace />;
-  if (!roles.includes(me.role)) return <Navigate to={homeFor(me.role)} replace />;
-  return <Outlet />;
-}
 
 function Home() {
   const { me, loading } = useAuth();
   if (loading) return <Loading />;
   return <Navigate to={me ? homeFor(me.role) : "/login"} replace />;
+}
+
+/** Old links (runbook, bookmarks, `?as=` dev links) keep working: /officer/* → /admin/*, /operator → /baler. */
+function Moved({ from, to }: { from: string; to: string }) {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={`${to}${pathname.slice(from.length)}${search}${hash}`} replace />;
 }
 
 function NotFound() {
@@ -45,33 +27,28 @@ function NotFound() {
   );
 }
 
+/**
+ * One router, three lazy role apps. Each app is its own chunk (`apps/<role>/routes.tsx`), so a buyer
+ * never downloads the map and a baler never downloads the charts. The apps render their own nested
+ * routes, layout and 404.
+ */
 export const router = createBrowserRouter([
   { path: "/", element: <Home /> },
   { path: "/login", element: <Login /> },
   { path: "/impact", element: <Impact /> },
   {
-    element: <RequireRole roles={["officer"]} />,
-    children: [
-      {
-        element: <Shell />,
-        children: [
-          { path: "/officer", element: <Radar /> },
-          { path: "/officer/fields", element: <Fields /> },
-          { path: "/officer/bookings", element: <Bookings /> },
-          { path: "/officer/balers", element: <Balers /> },
-          { path: "/officer/buyers", element: <Buyers /> },
-          { path: "/officer/demo", element: <Demo /> },
-        ],
-      },
-    ],
+    element: <RequireRole role="officer" />,
+    children: [{ path: "/admin/*", lazy: () => import("./apps/admin/routes"), hydrateFallbackElement: <Loading /> }],
   },
   {
-    element: <RequireRole roles={["buyer"]} />,
-    children: [{ element: <Shell />, children: [{ path: "/buyer", element: <BuyerPage /> }] }],
+    element: <RequireRole role="operator" />,
+    children: [{ path: "/baler/*", lazy: () => import("./apps/baler/routes"), hydrateFallbackElement: <Loading /> }],
   },
   {
-    element: <RequireRole roles={["operator"]} />,
-    children: [{ element: <Shell />, children: [{ path: "/operator", element: <OperatorPage /> }] }],
+    element: <RequireRole role="buyer" />,
+    children: [{ path: "/buyer/*", lazy: () => import("./apps/buyer/routes"), hydrateFallbackElement: <Loading /> }],
   },
+  { path: "/officer/*", element: <Moved from="/officer" to="/admin" /> },
+  { path: "/operator/*", element: <Moved from="/operator" to="/baler" /> },
   { path: "*", element: <NotFound /> },
 ]);

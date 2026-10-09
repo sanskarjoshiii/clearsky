@@ -1,9 +1,9 @@
 import { ChevronLeft, ChevronRight, FlaskConical, Play, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { useDemoAction, useDemoClock, useSetClock, useVillages } from "../../api/hooks";
-import { PageBody, useSimPanel, TopBar } from "../../components/Shell";
-import { Button, Card, ConfirmDialog, ErrorNote, Field, Input, PageTitle, Skeleton, useToast } from "../../components/ui";
-import { addDays, fmtDayLong } from "../../lib/format";
+import { useDemoAction, useDemoClock, useSetClock, useVillages } from "../../../api/hooks";
+import { PageBody, useSimPanel, TopBar } from "../../../components/Shell";
+import { Button, Card, ConfirmDialog, ErrorNote, Field, Input, PageTitle, Skeleton, useToast } from "../../../components/ui";
+import { addDays, fmtDayLong } from "../../../lib/format";
 
 const RUNBOOK = [
   "Reset demo data (clock goes to 20 Oct).",

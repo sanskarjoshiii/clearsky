@@ -33,6 +33,7 @@ from clearsky.repo import (
     ConversationsRepo,
     FarmersRepo,
     FieldsRepo,
+    SettingsRepo,
     VillagesRepo,
 )
 
@@ -445,7 +446,14 @@ def buyer_demand() -> dict[str, Any]:
         raise ApiError(400, "bad_request", f"demand can't be below already reserved {b.reserved_tonnes:g} t")
     updated = b.model_copy(update=req.model_dump())
     BuyersRepo().put(updated)  # existing bookings keep their price; new bookings use these values
+    SettingsRepo().add_demand_change(b.buyer_id, {"at": clock.now().isoformat(), **req.model_dump()})
     return {"buyer": updated.model_dump(mode="json") | {"remaining_tonnes": updated.remaining_tonnes}}
+
+
+@app.get("/api/buyers/me/demand/history")
+def buyer_demand_history() -> dict[str, Any]:
+    b = _buyer(require("buyer"))
+    return {"changes": list(reversed(SettingsRepo().demand_history(b.buyer_id)))}
 
 
 # ------------------------------------------------------------------ operator (baler)
@@ -476,6 +484,8 @@ def operator_me() -> dict[str, Any]:
 
 class OperatorUpdate(BaseModel):
     acres_per_day: float | None = PField(default=None, ge=1, le=60)
+    radius_km: float | None = PField(default=None, ge=5, le=50)
+    operator_phone: str | None = PField(default=None, pattern=r"^\+\d{10,15}$")
     active: bool | None = None
 
 
@@ -550,6 +560,78 @@ def operator_route() -> dict[str, Any]:
         "remaining": len(confirmed),
         "booked_acres": ledger.booked_acres if ledger else 0.0,
         "route": _route_line(points) if rows else [],
+    }
+
+
+@app.get("/api/operator/me/schedule")
+def operator_schedule() -> dict[str, Any]:
+    """Stops and booked acres per day for the next `days` days (default 14)."""
+    b = _baler(require("operator"))
+    try:
+        n = max(1, min(int(q("days") or 14), 31))
+    except ValueError as e:
+        raise ApiError(400, "bad_request", "days must be a number") from e
+    today = clock.today()
+    end = today + timedelta(days=n - 1)
+    ledger = BalerDaysRepo().range(b.baler_id, today, end)
+    by_day: dict[date, list[Any]] = {}
+    for bk in BookingsRepo().by_baler(b.baler_id, today, end):
+        if bk.status in (BookingStatus.CONFIRMED, BookingStatus.DONE):
+            by_day.setdefault(bk.date, []).append(bk)
+    villages = {v.village_id: v for v in VillagesRepo().list_all()}
+    out = []
+    for i in range(n):
+        d = today + timedelta(days=i)
+        stops = by_day.get(d, [])
+        out.append(
+            {
+                "date": d.isoformat(),
+                "stops": len(stops),
+                "done": sum(1 for s in stops if s.status == BookingStatus.DONE),
+                "booked_acres": ledger[d].booked_acres if d in ledger else 0.0,
+                "capacity_acres": b.acres_per_day,
+                "villages": sorted(
+                    {villages[s.village_id].name if s.village_id in villages else s.village_id for s in stops}
+                ),
+            }
+        )
+    return {"days": out}
+
+
+@app.get("/api/operator/me/history")
+def operator_history() -> dict[str, Any]:
+    """Fields this baler has cleared (DONE bookings), newest first, with season totals."""
+    b = _baler(require("operator"))
+    frm, to = q("from"), q("to")
+    try:
+        start = date.fromisoformat(frm) if frm else get_settings().season_start
+        end = date.fromisoformat(to) if to else clock.today()
+    except ValueError as e:
+        raise ApiError(400, "bad_request", "from/to must be YYYY-MM-DD") from e
+    done = [bk for bk in BookingsRepo().by_baler(b.baler_id, start, end) if bk.status == BookingStatus.DONE]
+    farmers = {f.phone: f for f in FarmersRepo().list_all()}
+    villages = {v.village_id: v for v in VillagesRepo().list_all()}
+    rows = [
+        {
+            "booking_id": bk.booking_id,
+            "date": bk.date.isoformat(),
+            "done_at": bk.done_at.isoformat() if bk.done_at else None,
+            "farmer_name": farmers[bk.phone].name if bk.phone in farmers else None,
+            "village_name": villages[bk.village_id].name if bk.village_id in villages else bk.village_id,
+            "acres": bk.acres,
+            "est_tonnes": bk.est_tonnes,
+        }
+        for bk in sorted(done, key=lambda x: (x.date, x.booking_id), reverse=True)
+    ]
+    return {
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "rows": rows,
+        "totals": {
+            "fields": len(rows),
+            "acres": round(sum(bk.acres for bk in done), 1),
+            "tonnes": round(sum(bk.est_tonnes for bk in done), 1),
+        },
     }
 
 

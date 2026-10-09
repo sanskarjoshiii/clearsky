@@ -4,14 +4,17 @@ import type {
   Alert,
   AlertResult,
   Baler,
+  BalerHistory,
   BookingRow,
   Buyer,
+  DemandChange,
   DemoClock,
   DevAccounts,
   FieldDetail,
   FieldRow,
   Layer,
   Route,
+  ScheduleDay,
   Stats,
   Supply,
   Turn,
@@ -85,9 +88,18 @@ export function useUpdateDemand() {
   return useMutation({
     mutationFn: (body: { demand_tonnes: number; price_per_tonne: number; max_radius_km: number }) =>
       api<{ buyer: Buyer }>("/api/buyers/me/demand", { method: "PUT", body }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["supply"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["supply"] });
+      void qc.invalidateQueries({ queryKey: ["demand-history"] });
+    },
   });
 }
+
+export const useDemandHistory = () =>
+  useQuery({
+    queryKey: ["demand-history"],
+    queryFn: async () => (await api<{ changes: DemandChange[] }>("/api/buyers/me/demand/history")).changes,
+  });
 
 // ---------------------------------------------------------------- operator
 export const useOperatorMe = () =>
@@ -107,10 +119,20 @@ export const useOperatorAlerts = () =>
     refetchInterval: LIVE,
   });
 
+export const useSchedule = (days = 14) =>
+  useQuery({
+    queryKey: ["operator", "schedule", days],
+    queryFn: async () => (await api<{ days: ScheduleDay[] }>("/api/operator/me/schedule", { query: { days: String(days) } })).days,
+    refetchInterval: LIVE,
+  });
+
+export const useBalerHistory = () =>
+  useQuery({ queryKey: ["operator", "history"], queryFn: () => api<BalerHistory>("/api/operator/me/history") });
+
 export function useUpdateOperator() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { acres_per_day?: number; active?: boolean }) =>
+    mutationFn: (body: { acres_per_day?: number; radius_km?: number; operator_phone?: string; active?: boolean }) =>
       api<{ baler: Baler }>("/api/operator/me", { method: "PUT", body }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["operator"] }),
   });

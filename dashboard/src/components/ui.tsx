@@ -340,7 +340,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const push = useCallback((text: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, text, tone }]);
+    // the same message is never stacked twice (e.g. a redirect notice fired by two renders)
+    setToasts((t) => (t.some((x) => x.text === text) ? t : [...t, { id, text, tone }]));
     window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
   return (

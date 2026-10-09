@@ -2,15 +2,29 @@
 
 Web app for everyone except farmers (farmers use WhatsApp):
 
-| Route | Who | What |
+Three role apps, each with its own base path, layout, navigation and lazy-loaded bundle (`src/apps/<role>/`). People see **Admin / Baler / Buyer**; code and Cognito keep the group names `officer` / `operator` / `buyer`.
+
+| App | Route | What |
 |---|---|---|
-| `/officer` | District officer (super admin) | Burn Risk Radar: map, villages by risk, **Alert village**, field drawer |
-| `/officer/fields`, `/bookings`, `/balers`, `/buyers` | Officer | Every table, searchable |
-| `/officer/demo` | Officer (DEMO_MODE) | Demo clock, harvest wave, run risk/reminders, reset, runbook |
-| `/buyer` | Industry buyer | Demand + price form, incoming tonnes chart, deliveries |
-| `/operator` | Baler operator | Phone-first stop list with Call + big **Done**, route map, availability |
-| `/impact` | Public | Live counters for the video |
-| Side panel | Officer (WA_MODE=simulator) | **Farmer simulator**: chat as a farmer through the real WhatsApp pipeline |
+| **Admin** (district officer, super admin) | `/admin` | Burn Risk Radar: map, villages by risk, **Alert village**, field drawer |
+| | `/admin/fields`, `/bookings`, `/balers`, `/buyers` | Every table, searchable |
+| | `/admin/demo` | DEMO_MODE only: demo clock, harvest wave, run risk/reminders, reset, runbook |
+| | side panel | WA_MODE=simulator only: **farmer simulator**, chat as a farmer through the real WhatsApp pipeline |
+| **Baler** (operator), phone-first | `/baler` | Today: stop list with Call + big **Done**, route map, availability |
+| | `/baler/schedule` | Next 14 days: stops and booked acres per day (a day opens its route) |
+| | `/baler/history` | Cleared fields with season totals |
+| | `/baler/profile` | Acres/day, working radius, availability, contact number, sign out |
+| **Buyer** (industry) | `/buyer` | Overview: KPIs + incoming tonnes chart |
+| | `/buyer/deliveries` | Deliveries table + CSV export |
+| | `/buyer/demand` | Demand / price / radius form + change history |
+| | `/buyer/profile` | Plant details, sign out |
+| Public | `/impact`, `/login` | Live counters for the video; sign-in |
+
+**Routing rules** (`src/App.tsx`, `src/auth/RequireRole.tsx`, `homeFor` in `src/auth/AuthProvider.tsx`):
+- Signed out → `/login`, then back to the page that was asked for.
+- Signed in on another role's URL → your own home, with a notice ("That page is for buyers.").
+- Each app has its own 404 inside its layout.
+- Old links still work: `/officer/*` → `/admin/*`, `/operator` → `/baler` (query strings such as `?as=` are kept).
 
 Design rules and tokens: [`../docs/design-system.md`](../docs/design-system.md). Tokens live only in `src/styles.css`.
 
@@ -27,7 +41,7 @@ npm install
 npm run dev                                         # http://localhost:5173
 ```
 
-Sign in with the role picker. Shortcut URLs (dev only): `/officer?as=officer.Sangrur&sim=1`, `/operator?as=operator.B01`, `/buyer?as=buyer.BY03`.
+Sign in with the role picker. Shortcut URLs (dev only): `/admin?as=officer.Sangrur&sim=1`, `/baler?as=operator.B01`, `/buyer?as=buyer.BY03`.
 
 ## Environment variables (`dashboard/.env.local`)
 
@@ -46,9 +60,9 @@ Nothing is needed locally. For the deployed stack:
 
 ```powershell
 npm run typecheck
-npm test              # Vitest component tests
+npm test              # Vitest: components + route guards
 npm run build
-npm run e2e           # Playwright smoke tests against the local stack, using installed Google Chrome
+npm run e2e           # Playwright (smoke + one test per role app) against the local stack, using installed Google Chrome
                       # Windows without uv on PATH: $env:CLEARSKY_API_CMD="python -m uv run python scripts/dev_server.py"
 npm run screens -- screens   # capture the main screens (desktop + phone) into ./screens
 ```

@@ -4,10 +4,10 @@ import { chromium } from "@playwright/test";
 
 const out = process.argv[2] ?? "screens";
 const shots = [
-  { name: "radar", path: "/officer?as=officer.Sangrur&sim=1", w: 1440, h: 1000 },
-  { name: "fields", path: "/officer/fields?as=officer.Sangrur", w: 1440, h: 900 },
+  { name: "radar", path: "/admin?as=officer.Sangrur&sim=1", w: 1440, h: 1000 },
+  { name: "fields", path: "/admin/fields?as=officer.Sangrur", w: 1440, h: 900 },
   { name: "buyer", path: "/buyer?as=buyer.BY03", w: 1440, h: 1000 },
-  { name: "operator-phone", path: "/operator?as=operator.B01", w: 390, h: 844, next: true },
+  { name: "operator-phone", path: "/baler?as=operator.B01", w: 390, h: 844, next: true },
   { name: "impact", path: "/impact", w: 1440, h: 900 },
 ];
 const browser = await chromium.launch({ channel: "chrome", headless: true });
