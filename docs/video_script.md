@@ -1,144 +1,135 @@
-# clearsky: 3-minute video script
+# clearsky: demo video script (Team Atherion)
 
-**Length:** 3:00 exactly. **Voice-over pace:** about 150 words a minute (each block below fits its slot when read calmly).
-**Language:** English voice-over; the WhatsApp bot speaks Hinglish/Hindi on screen (add English subtitles under bot messages).
-**Rule:** every number shown on screen comes from the live app or from a cited source. No made-up statistics (see "Fill in before recording").
+**Length:** 3:30 maximum. **Voice-over pace:** about 150 words a minute (each block fits its slot when read calmly).
+**Language:** English narration; the WhatsApp part is spoken in Hindi on camera (add English subtitles).
+**Rules for every number on screen:** it comes from the live app or from a cited source. Prices and payouts are **demo prices** and must be called that (CLAUDE.md, PLAN.md).
 
-| # | Section | Time | Length |
-|---|---|---|---|
-| 1 | Opening film (`introvideo.mp4`) | 0:00 – 0:10 | 10 s |
-| 2 | Team | 0:10 – 0:25 | 15 s |
-| 3 | Explainer: problem → solution → how it works → AWS → before/after | 0:25 – 1:15 | 50 s |
-| 4 | Live demo: WhatsApp → baler → buyer → admin | 1:15 – 2:45 | 90 s |
-| 5 | Outro | 2:45 – 3:00 | 15 s |
-
----
-
-## 1. Opening film · 0:00 – 0:10
-
-Use `introvideo.mp4` as is (farmer sends a voice note → baler bales the field → plant manager gets the straw → baler driver confirms).
-
-| Time | Screen | Voice-over |
-|---|---|---|
-| 0:00 – 0:08 | Intro film, original audio | *(none, let the film speak)* |
-| 0:08 – 0:10 | Last frame fades to white; the round **clearsky** logo grows in the centre, tagline under it: **"Straw pickup instead of stubble fires."** | *(none)* |
+| # | Section | Time | Length | Who |
+|---|---|---|---|---|
+| 1 | Team introduction | 0:00 – 0:24 | 24 s | Sanskar, Kamran, Akshay, Anushka |
+| 2 | Bridge + 10-second overview film | 0:24 – 0:38 | 14 s | Sanskar, then `introvideo.mp4` |
+| 3 | Explainer: problem → idea → how it works → AWS → before/after | 0:38 – 1:28 | 50 s | Presenter + clips 3a–3e |
+| 4 | Live demo A: WhatsApp booking in Hindi (on camera) | 1:28 – 2:04 | 36 s | Sanskar |
+| 5 | Live demo B: website walkthrough (screen recording) | 2:04 – 2:59 | 55 s | Voice-over **to be written after recording** |
+| 6 | Impact: pollution avoided | 2:59 – 3:16 | 17 s | Presenter, on `/impact` |
+| 7 | Outro: our goal, thank you | 3:16 – 3:30 | 14 s | Sanskar (team in frame) |
 
 ---
 
-## 2. Team · 0:10 – 0:25
+## 1. Team introduction · 0:00 – 0:24
 
-Four quick cards, 3.5 s each: photo or short face clip on the left, name + role on the right, one line of what they built. Each person says their own line (or one narrator reads all four).
+Each person on camera (or a face card + name), 5–7 s each. Lower-third: **name · role**.
 
-| Time | Card | Line (spoken) |
+| Time | Speaker | Line |
 |---|---|---|
-| 0:10 – 0:14 | **[Name]** · @sanskarjoshiii | "I built the core: the WhatsApp agent, matching and the AWS backend." |
-| 0:14 – 0:17 | **Kamran Pathan** · @kamranp03 | "I built the dashboards, approvals and the pollution-impact view." |
-| 0:17 – 0:21 | **[Name]** · @akkki007 | "I took it live: AWS deployment, the AI model and WhatsApp." |
-| 0:21 – 0:25 | **[Name]** | "I handled testing, this video and the blog." |
+| 0:00 – 0:07 | **Sanskar Joshi** | "We are Team Atherion. I'm Sanskar: I built the core, the WhatsApp agent and the AWS backend, and deployed it." |
+| 0:07 – 0:12 | **Kamran Pathan** | "I'm Kamran. I built the dashboards and the approvals for every role." |
+| 0:12 – 0:17 | **Akshay** | "I'm Akshay. I worked on the AI model and on testing the whole system." |
+| 0:17 – 0:24 | **Anushka** | "I'm Anushka. I worked on the pollution-impact view and **[confirm: e.g. the emission-factor method behind it]**." |
+
+> Anushka's second topic is a placeholder: put in what she actually worked on before recording.
 
 ---
 
-## 3. Explainer · 0:25 – 1:15
+## 2. Bridge + overview film · 0:24 – 0:38
 
-**Layout:** split screen, two 8:9 halves of the 16:9 frame. Left half (960×1080): the presenter talking to camera. Right half (960×1080): the animation, five separate clips rendered from `video/` (`3a-problem.mp4` 12 s, `3b-idea.mp4` 9 s, `3c-how-it-works.mp4` 12 s, `3d-aws.mp4` 11 s, `3e-before-after.mp4` 6 s; 30 fps). No titles on screen: the presenter says them, the clips only show the supporting animation. Same look as the dashboard: white canvas, hairlines, green / amber / red only for risk, teal for straw, violet for the AI agent.
-
-**Hackathon track (Air):** the explainer is framed on the track card. Scene 3a closes on the chips **Stubble burning · AQI · Pollution exposure**; scene 3c labels the risk score **Track** and the village alert **Warn**; scene 3e ends on **"Change what happens on the bad days."** (Indoor air and school safety are not part of clearsky, so they are left out.)
-
-### 3a. The problem · 0:25 – 0:37 (12 s)
-
-| Animation (right side) | Voice-over |
-|---|---|
-| The Punjab outline draws in with **Amritsar, Jalandhar, Ludhiana, Bathinda, Patiala**, and **Delhi** to the south-east. Fields appear as gold dots; a bar shows *Paddy harvest → Wheat sowing* squeezing to "only weeks to clear the straw". Fields ignite in waves, smoke drifts south-east to Delhi, and an **AQI** meter there slides to the bad end. Closes on the chips **Stubble burning · AQI · Pollution exposure**. Optional sourced number on the AQI card (`video/src/content.ts` → `problemStat`). | "Every October, after the paddy harvest, farmers get only weeks to sow wheat. Clearing straw is slow and costly, so many burn it, and the smoke drifts all the way to Delhi." |
-
-### 3b. The idea · 0:37 – 0:46 (9 s)
-
-| Animation | Voice-over |
-|---|---|
-| Farmer, baler and industry appear far apart; dashed lines reach for each other and stop short: "No link between them". The clearsky logo lands in the middle, solid lines connect all three, and three things flow through it: a violet **pickup request** (farmer → baler), teal **straw** bales (farmer → industry) and a **₹ payment** (industry → farmer). Tag on the farmer: "Only needs WhatsApp". | "That straw isn't waste. Industries buy it as fuel, and balers can collect it. clearsky connects them, and the farmer only needs WhatsApp." |
-
-### 3c. How it works · 0:46 – 0:58 (12 s)
-
-| Animation | Voice-over |
-|---|---|
-| Three cards light up in turn. **1 · Understands the farmer:** a voice note plays, the Hinglish text types out (*"Mera 8 acre dhaan 24 tareekh ko katega, Khanna. Naam Gurpreet."*) and Name / Village / Acres / Harvest tick in violet. **2 · Books the nearest free baler:** a search radius grows on a mini map, the nearest free baler (6 km) is picked, a pellet plant is linked, "Booked · capacity reserved". **3 · Tracks fields about to burn (Track · Warn):** NASA fire history and days-to-sowing feed a gauge that swings to Red, then "Village alert on WhatsApp" fires and the field turns green when booked. | "An AI agent understands Hindi or Punjabi, even voice notes. A matcher books the nearest free baler and a buyer. And a risk score tracks fields about to burn, and warns them first." |
-
-### 3d. Built on AWS · 0:58 – 1:09 (11 s)
-
-| Animation | Voice-over |
-|---|---|
-| Four lanes light up as they are named, with a violet packet moving through the active one: **01 Every message** WhatsApp → API Gateway → Lambda → SQS · **02 Voice** Transcribe → Lambda (AI agent) → Polly · **03 Bookings** two bookings race for a baler's last slot and the **DynamoDB transaction** lets exactly one win ("B → next free baler") · **04 Every hour** EventBridge Scheduler → risk Lambda (+ NASA FIRMS) → Burn Risk Radar. Footer: Cognito, S3, CloudWatch. | "It runs serverless on AWS: Lambda and SQS take every message, Transcribe and Polly handle Hindi voice, DynamoDB transactions stop double-booking, and EventBridge rescores risk every hour." |
-
-> Only name services that are switched on in the deployed stack. If Transcribe is not enabled (`STT_PROVIDER`), drop it from the line and the diagram. If the LLM runs on Bedrock, add "Bedrock" to the agent box.
-
-### 3e. Before and after · 1:09 – 1:15 (6 s)
-
-| Animation | Voice-over |
-|---|---|
-| Two columns. **Before:** Calls around → Waits (clock spinning) → Burns the field (red flame). **With clearsky:** One WhatsApp message → Pickup confirmed → Straw sold, farmer paid. The "before" column greys out as the "after" one builds; end line with the logo: **"Change what happens on the bad days."** | "Before: calls, waiting, a fire. After: one message, a pickup, a payment." |
+| Time | Screen | Voice |
+|---|---|---|
+| 0:24 – 0:28 | Sanskar on camera | "Let's take a quick look at what we built." |
+| 0:28 – 0:38 | `introvideo.mp4` full screen (10 s: farmer voice note → baler → plant manager → baler driver), its own audio | *(none)* |
 
 ---
 
-## 4. Live demo · 1:15 – 2:45
+## 3. Explainer · 0:38 – 1:28 (50 s)
 
-Screen recordings of the real app. Prepare the state with `docs/demo_runbook.md` (Reset → demo clock). Use the **offer flow** (the baler taps Accept), because it shows the full loop. Zoom 100 %, 1440×900, notifications off. For WhatsApp, record a real phone (needs issue #4 done) or the farmer simulator on `/admin`.
+**Layout:** split screen, two 8:9 halves. Left: the presenter. Right: the matching clip from `video/` (no titles on the clips; the presenter says them). The clips are already cut to these exact lengths: `3a-problem.mp4` 12 s, `3b-idea.mp4` 9 s, `3c-how-it-works.mp4` 12 s, `3d-aws.mp4` 11 s, `3e-before-after.mp4` 6 s.
 
-### 4a. WhatsApp agent · 1:15 – 1:45 (30 s)
+> Presenter: Sanskar by default. For more energy, each member can present their own part (e.g. Anushka the problem, Akshay "how it works", Sanskar AWS); the timings stay the same.
 
-| Time | Screen | Voice-over |
-|---|---|---|
-| 1:15 – 1:25 | Phone. The farmer sends a voice note (or types): *"Mera 8 acre dhaan 24 tareekh ko katega, Bhawanigarh. Naam Gurpreet."* Subtitle: *"My 8 acres of paddy will be cut on the 24th, Bhawanigarh. Name Gurpreet."* | "Meet Gurpreet. One voice note in Hindi gives us the name, village, acres and harvest date. No app, no forms." |
-| 1:25 – 1:35 | The agent replies in Hinglish: the request is sent to the nearest baler. Highlight the parsed details with a violet outline. | "The agent understands it, finds the best baler nearby and sends the job, all in seconds." |
-| 1:35 – 1:45 | *(cut back here after 4b's Accept)* ✅ *"Gurpreet ji, … ko baler … aapka khet saaf karne aayega. Parali na jalayein. 🙏"* plus the Hindi voice reply playing (Polly). | "When the baler accepts, Gurpreet gets a confirmation, in text and as a Hindi voice reply." |
+### 3a. The problem · 0:38 – 0:50 (12 s) · clip `3a-problem.mp4`
+**Clip shows:** Punjab drawing in (Amritsar, Jalandhar, Ludhiana, Bathinda, Patiala), fields igniting in waves, smoke drifting to Delhi, an AQI meter sliding to "Severe", then the chips *Stubble burning · AQI · Pollution exposure*.
+**Voice:** "Every October, after the paddy harvest, farmers get only weeks to sow wheat. Clearing straw is slow and costly, so many burn it, and the smoke drifts all the way to Delhi."
 
-### 4b. Baler dashboard · 1:45 – 2:07 (22 s)
+### 3b. The idea · 0:50 – 0:59 (9 s) · clip `3b-idea.mp4`
+**Clip shows:** farmer, baler and industry with no link; the clearsky hub connects them; a pickup request, straw and a ₹ payment flow through it.
+**Voice:** "That straw isn't waste. Industries buy it as fuel, and balers can collect it. clearsky connects them, and the farmer only needs WhatsApp."
 
-| Time | Screen | Voice-over |
-|---|---|---|
-| 1:45 – 1:52 | Phone-sized browser, `/baler/requests`: the new request (farmer, acres, distance, payout). Tap **Accept**. | "The baler gets the job on a phone: place, acres, pay. One tap accepts." |
-| 1:52 – 2:00 | `/baler` **Today**: numbered stops on the route map, capacity left for the day. | "The day becomes a route: every stop in order, with capacity left." |
-| 2:00 – 2:07 | Tap **Done · हो गया** → confirm → the stop turns green → (inset) the farmer's phone gets "aapka khet aaj saaf ho gaya". | "When the field is cleared, one tap on Done, and the farmer is told immediately." |
+### 3c. How it works · 0:59 – 1:11 (12 s) · clip `3c-how-it-works.mp4`
+**Clip shows:** (1) the AI agent turning a Hinglish voice note into name, village, acres and date; (2) the matcher finding the nearest free baler (6 km) and a buyer; (3) the burn-risk gauge swinging to red (**Track**) and a village alert on WhatsApp (**Warn**).
+**Voice:** "An AI agent understands Hindi or Punjabi, even voice notes. A matcher books the nearest free baler and the buyer who pays best. And a risk score tracks fields about to burn, and warns them first."
 
-### 4c. Industry buyer dashboard · 2:07 – 2:22 (15 s)
+### 3d. Built on AWS · 1:11 – 1:22 (11 s) · clip `3d-aws.mp4`
+**Clip shows:** four lanes lighting up in this order: messages (API Gateway, Lambda, SQS), voice (Transcribe, AI agent, Polly), bookings (two requests race for one slot, the DynamoDB transaction lets one win), every hour (EventBridge Scheduler, risk scorer, Burn Risk Radar).
+**Voice:** "It runs serverless on AWS: Lambda and SQS take every message, Transcribe and Polly handle Hindi voice, DynamoDB transactions stop double-booking, and EventBridge rescores risk every hour."
 
-| Time | Screen | Voice-over |
-|---|---|---|
-| 2:07 – 2:14 | `/buyer` **Overview**: tonnes needed vs tonnes on the way, incoming deliveries. | "The industry buyer sees exactly how much straw is coming, and from where." |
-| 2:14 – 2:22 | **Demand**: change the tonnes needed → save; **Deliveries**: export CSV. | "They update demand anytime, and clearsky routes the next bales to match." |
-
-### 4d. Super-admin (district officer) dashboard · 2:22 – 2:45 (23 s)
-
-| Time | Screen | Voice-over |
-|---|---|---|
-| 2:22 – 2:30 | `/admin` **Burn Risk Radar**: the map with green / amber / red rings; Demo controls → **Harvest wave** makes one village light up red. | "The district officer gets a Burn Risk Radar: every field scored live, with high-risk villages in red." |
-| 2:30 – 2:38 | Click the red village → **Alert** → **Send WhatsApp offer** → toast "Offer sent to N farmers". Inset: a farmer taps **HAAN, book karo**, and the pin turns solid green. | "One click offers every farmer there a pickup. They say yes, and red turns green before anything burns." |
-| 2:38 – 2:45 | **Approvals**: approve a new baler's registration; then a quick look at `/impact`. | "The officer also approves new balers and buyers, and tracks the impact across the district." |
+### 3e. Before and after · 1:22 – 1:28 (6 s) · clip `3e-before-after.mp4`
+**Clip shows:** Before (calls around, waits, burns the field) vs with clearsky (one WhatsApp message, pickup confirmed, straw sold and farmer paid), ending on "Change what happens on the bad days."
+**Voice:** "Before: calls, waiting, a fire. After: one message, a pickup, a payment."
 
 ---
 
-## 5. Outro · 2:45 – 3:00 (15 s)
+## 4. Live demo A: WhatsApp booking in Hindi · 1:28 – 2:04 (36 s)
 
-| Time | Screen | Voice-over |
+**Setup:** Sanskar on camera holding the phone; the phone's screen recording plays **next to him** (split screen). Use the live number (issue #4) and a phone that is in the WhatsApp test-recipient list.
+
+| Time | Who / screen | Line |
 |---|---|---|
-| 2:45 – 2:53 | Back to the intro film's look: a cleared field with neat bales, a clear blue sky. The `/impact` counters overlay the shot. | "No fire. The straw becomes fuel, farmers earn instead of burning, and the sky stays clear." |
-| 2:53 – 3:00 | White end card: round clearsky logo, **"Straw pickup instead of stubble fires."**, `github.com/sanskarjoshiii/clearsky`, "Built on AWS · AWS Environmental Hacks 2026", the four team names. | "clearsky: one WhatsApp message instead of one more fire." |
+| 1:28 – 1:32 | Sanskar to camera | "So let's move to the actual demo of our system." |
+| 1:32 – 1:38 | Sanskar opens the clearsky chat (screen recording starts) | "clearsky understands Hindi, Punjabi, Hinglish and English. I'll speak in Hindi." |
+| 1:38 – 1:48 | Sanskar holds the mic button and records a voice note | **Hindi (spoken):** "मैं संस्कार जोशी हूँ। मेरी 6 एकड़ धान की कटाई परसों है, और मुझे 4-5 दिन में खेत साफ़ करवाना है। मेरी ज़मीन **[village]** में है।" · *Subtitle:* "I'm Sanskar Joshi. My 6 acres of paddy will be harvested the day after tomorrow, and I need the field cleared within 4–5 days. My land is in [village]." |
+| 1:48 – 1:58 | Screen: the agent's reply arrives (text + Hindi voice reply) | Let the reply play for 2–3 s, then Sanskar: "In seconds the AI agent has booked a pickup with the nearest baler, and tells me my estimated payout." |
+| 1:58 – 2:04 | Sanskar to camera | "No app, no form, no phone calls. Just one message." |
+
+**Before recording, check:**
+- **[village]** must be a village the system knows (the pilot list is in Sangrur district, e.g. **Bhawanigarh**; see `data/seed/villages.json`). A village outside the list makes the agent ask again.
+- Say the **harvest date** ("परसों" / "24 तारीख") as above: the agent needs it to book. If it asks a follow-up question anyway, answer it on camera; that shows the conversation.
+- The payout is a **demo estimate**: on screen add a small caption "demo prices".
+- Rehearse the exact sentence twice with the live number first; if a baler has to accept before the ✅, have Kamran (or a second screen) accept it on the baler dashboard during this scene, or set `AUTO_ACCEPT_DEMO=true` for the recording.
 
 ---
 
-## Fill in before recording
+## 5. Live demo B: website walkthrough · 2:04 – 2:59 (55 s)
 
-| What | Why | Where it shows |
+**Screen recording of the live site** (clearsky.akkki.tech), with Sanskar's voice-over. **The voice-over is written after the recording is done.** Planned order and time boxes:
+
+| Time | Screen (planned) | Voice-over |
 |---|---|---|
-| **Names** of @sanskarjoshiii, @akkki007 and the fourth member, and confirm each person's line | Not in the repo; don't guess | 2. Team, outro card |
-| **STAT CARD 1** (e.g. area burnt, fire count or air-quality impact) **with its source** shown in small text on the card | We never put an unsourced number on screen | 3a |
-| **Emission factors with citations** in `EMISSION_FACTORS` (`SETUP_GUIDE.md` §9b) | Without them the app hides "pollution avoided"; then cut that counter from 3e and the outro and say "acres cleared, tonnes routed" | 3e, 4d, 5 |
-| Deployed stack + real WhatsApp number (issue #4) | Real-phone shots and the Polly voice reply need it; otherwise record the simulator | 4a, 4b |
-| Which AWS services are actually on (Transcribe? Bedrock?) | Name only what runs | 3d |
+| 2:04 – 2:14 | **Home page**: hero film, live field data, who it's for | *(to be added after recording)* |
+| 2:14 – 2:29 | **Super admin**: Burn Risk Radar, a red village → Alert → WhatsApp offer; Bookings (the booking from demo A); Approvals | *(to be added after recording)* |
+| 2:29 – 2:44 | **Baler**: request from demo A → Accept → route → **Done** | *(to be added after recording)* |
+| 2:44 – 2:59 | **Buyer**: straw on the way, deliveries, demand and price | *(to be added after recording)* |
+
+---
+
+## 6. Impact: pollution avoided · 2:59 – 3:16 (17 s)
+
+**Screen:** the public `/impact` page (and the home page's live cards). Read the numbers **from the screen at recording time**; don't invent any.
+
+| Time | Screen | Voice |
+|---|---|---|
+| 2:59 – 3:08 | `/impact` counters: acres cleared, tonnes of straw routed | "Every acre we clear is an acre that doesn't burn. In our pilot, that's **[X] acres** and **[Y] tonnes** of straw that went to industry instead of into the air." |
+| 3:08 – 3:16 | Impact table / pollution avoided | "That's less smoke in the AQI, and fewer people exposed to it: for every acre we clear, the fire, and the smoke from it, simply never happens." |
+
+> **Pollution avoided in kg (PM2.5 and others)** shows only when the team sets published emission factors with their citation (`EMISSION_FACTORS`, `SETUP_GUIDE.md` §9b). If they are set, add: "…and about **[Z] kg** of PM2.5 avoided, from published emission factors." Do **not** state an AQI number: we don't measure AQI, we prevent fires.
+
+---
+
+## 7. Outro · 3:16 – 3:30 (14 s)
+
+**Screen:** team in frame, then the end card: round clearsky logo, "Straw pickup instead of stubble fires.", `github.com/sanskarjoshiii/clearsky`, `clearsky.akkki.tech`, "Built on AWS · AWS Environmental Hacks 2026", Team Atherion: Sanskar · Kamran · Akshay · Anushka.
+
+| Time | Speaker | Line |
+|---|---|---|
+| 3:16 – 3:26 | Sanskar | "That's clearsky. Our goal: no farmer should have to choose between sowing on time and clean air. One message, and the fire never starts." |
+| 3:26 – 3:30 | All four | "We are Team Atherion. Thank you!" |
+
+---
 
 ## Recording checklist
 
-- Record the demo (4a–4d) as one continuous take per role, then cut. Order of real actions: farmer message → baler Accept → farmer ✅ → Done → buyer → radar alert → approvals.
-- Before the take: `make test` and `make e2e` green, demo Reset, demo clock set (`docs/demo_runbook.md`).
-- Use synthetic or team phone numbers only; blur any real number on screen.
-- Subtitles for every Hindi/Hinglish line; captions for the full voice-over (judges often watch muted).
-- Background music low under the voice-over; the intro film keeps its own audio.
-- Final export 1920×1080, ≤ 3:00, then upload and put the link in `README.md`.
+- **Order of real actions:** WhatsApp booking (demo A) → the same booking on the admin Bookings page → baler accepts and marks Done → buyer sees the delivery → `/impact` counters. Recording them in this order makes demo B and the impact numbers show the booking from demo A.
+- Before the takes: the deployed stack is up, WhatsApp is on the live number, the test phone is in the recipient list, and the demo clock and data look right (`docs/demo_runbook.md`).
+- Captions for the full voice-over and English subtitles for every Hindi line (judges often watch muted). Add "demo prices" wherever a payout or price is on screen.
+- Explainer clips: drop `3a`–`3e` back to back on the right half at 0:38; each fades in and out.
+- Background music low under the voice-over; the overview film keeps its own audio.
+- Export 1920×1080, under 3:30, upload, and put the link in `README.md`.

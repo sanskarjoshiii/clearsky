@@ -41,3 +41,7 @@ dashboard/screens/
 # video (Remotion)
 video/out/
 video/node_modules
+
+# raw video masters (web renditions live in dashboard/public/home/)
+/home_page_video.mp4
+/introvideo.mp4
