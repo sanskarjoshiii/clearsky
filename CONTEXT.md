@@ -103,6 +103,7 @@ Full design: `IMPLEMENTATION.md`. Build order: `PLAN.md`. Phase logs and deviati
 
 ## 5. Open questions (ask the team; don't guess)
 
+
 How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-in reply template).
 
 - **LLM provider + model ID + API key** (`LLM_PROVIDER`, `LLM_MODEL_ID`, `LLM_API_KEY`). Until then the rules bot answers.
@@ -128,6 +129,8 @@ How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-
 
 ## 7. Changelog (newest first)
 
+- 2026-10-10 · Claude Code (issue #4, §8) · RED with real FIRMS data: seed generator puts the 10 RED candidates in villages where RED is reachable (`red_reachable`, same rng draws so the other 50 fields are unchanged); `gen_seed.py` keeps fire history from `villages.json` (before, `make seed` erased it). Live: only the 10 candidate fields/farmers rewritten (a full `make seed` would have deleted a pending baler application) → risk 10 RED / 50 GREEN · generate.py, gen_seed.py, test_seed.py, data/seed/*
+- 2026-10-10 · Claude Code (issue #4, §8 FIRMS) · Real FIRMS data: 19,926 VIIRS points (Oct–Nov 2022–2025) → `data/layers/firms_2022_2025.geojson`, scores in `data/seed/villages.json`, Villages table and S3; key in SSM. Fixed the deployed fire map: dashboard now fetches the presigned layer URL (API returns `url`, not `geojson`); DataBucket CORS for the dashboard origin; new `config.presigned_get_url` uses the regional S3 endpoint (global one 307-redirects, breaking CORS and SigV4; also fixes Polly voice-reply links). Risk rerun: 0 RED / 10 YELLOW — seed RED candidates are in random villages, and with real history only V024–V026/V018 can reach 60 (open question) · config.py, voice.py, api.py, hooks.ts, template.yaml
 - 2026-10-10 · Claude Code (issue #4, step F) · Stack switched to **`WaMode=cloud`**; Meta callback → `https://h5n589so32.execute-api.ap-south-1.amazonaws.com/webhook/whatsapp` (verify GET 200/403 and signed POST 200 checked against AWS) · infra/samconfig.toml
 - 2026-10-10 · Claude Code (issue #4, step E) · **Dashboard live at https://clearsky.akkki.tech** (CloudFront alias + ACM cert `ab1e5a76…`, us-east-1; first cert failed on Vercel's CAA records → added `amazon.com` CAA). Backend `CorsOrigins=https://clearsky.akkki.tech` (verified: other origins get no CORS header) · infra/samconfig.toml, SETUP_GUIDE.md §6a
 - 2026-10-10 · Claude Code (issue #4, step E) · Dashboard hosted on **S3 + CloudFront** instead of Amplify (no repo-owner access needed): stack `clearsky-dev-web` (`infra/web.yaml`), `make web-deploy`, live at https://d2spj2b1ns3qsi.cloudfront.net (Cognito mode). ACM cert for clearsky.akkki.tech requested (us-east-1), waiting on Vercel DNS records. Fixed CORS preflight 401: added `OPTIONS /api/{proxy+}` route without authorizer. Restored committed `dashboard/package-lock.json` (a stray local npm install had dropped test deps) · infra/web.yaml, infra/template.yaml, Makefile, SETUP_GUIDE.md §6a

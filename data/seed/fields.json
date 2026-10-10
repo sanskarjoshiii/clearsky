@@ -5,8 +5,8 @@
     "field_id": "F-SEED-001",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-15",
-    "lat": 30.407075,
-    "lng": 75.919,
+    "lat": 30.05855,
+    "lng": 75.818706,
     "phone": "+919999900001",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -15,7 +15,7 @@
     "sowing_deadline": "2026-10-25",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V028"
+    "village_id": "V026"
   },
   {
     "acres": 12.0,
@@ -23,17 +23,17 @@
     "field_id": "F-SEED-002",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-16",
-    "lat": 29.829266,
-    "lng": 76.093629,
+    "lat": 30.074004,
+    "lng": 75.854932,
     "phone": "+919999900002",
     "risk_level": "GREEN",
     "risk_reasons": [],
     "risk_score": 0,
     "source": "seed",
-    "sowing_deadline": "2026-10-26",
+    "sowing_deadline": "2026-10-23",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V007"
+    "village_id": "V025"
   },
   {
     "acres": 12.0,
@@ -41,17 +41,17 @@
     "field_id": "F-SEED-003",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-17",
-    "lat": 30.294018,
-    "lng": 76.082176,
+    "lat": 30.291906,
+    "lng": 75.802076,
     "phone": "+919999900003",
     "risk_level": "GREEN",
     "risk_reasons": [],
     "risk_score": 0,
     "source": "seed",
-    "sowing_deadline": "2026-10-24",
+    "sowing_deadline": "2026-10-23",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V013"
+    "village_id": "V018"
   },
   {
     "acres": 6.0,
@@ -59,8 +59,8 @@
     "field_id": "F-SEED-004",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-13",
-    "lat": 30.399114,
-    "lng": 75.845091,
+    "lat": 30.077721,
+    "lng": 75.859239,
     "phone": "+919999900004",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -69,7 +69,7 @@
     "sowing_deadline": "2026-10-25",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V027"
+    "village_id": "V025"
   },
   {
     "acres": 9.0,
@@ -77,8 +77,8 @@
     "field_id": "F-SEED-005",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-12",
-    "lat": 29.833278,
-    "lng": 76.104515,
+    "lat": 30.078016,
+    "lng": 75.865844,
     "phone": "+919999900005",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -87,7 +87,7 @@
     "sowing_deadline": "2026-10-25",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V007"
+    "village_id": "V025"
   },
   {
     "acres": 8.0,
@@ -95,8 +95,8 @@
     "field_id": "F-SEED-006",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-16",
-    "lat": 30.100986,
-    "lng": 75.767684,
+    "lat": 30.073855,
+    "lng": 75.809229,
     "phone": "+919999900006",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -105,7 +105,7 @@
     "sowing_deadline": "2026-10-26",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V024"
+    "village_id": "V026"
   },
   {
     "acres": 12.0,
@@ -113,8 +113,8 @@
     "field_id": "F-SEED-007",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-13",
-    "lat": 30.126705,
-    "lng": 75.793354,
+    "lat": 30.072443,
+    "lng": 75.855675,
     "phone": "+919999900007",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -123,7 +123,7 @@
     "sowing_deadline": "2026-10-23",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V003"
+    "village_id": "V025"
   },
   {
     "acres": 10.0,
@@ -131,8 +131,8 @@
     "field_id": "F-SEED-008",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-17",
-    "lat": 30.286706,
-    "lng": 76.088436,
+    "lat": 30.284594,
+    "lng": 75.808336,
     "phone": "+919999900008",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -141,7 +141,7 @@
     "sowing_deadline": "2026-10-23",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V013"
+    "village_id": "V018"
   },
   {
     "acres": 7.0,
@@ -149,8 +149,8 @@
     "field_id": "F-SEED-009",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-14",
-    "lat": 30.196425,
-    "lng": 75.823378,
+    "lat": 30.088669,
+    "lng": 75.769914,
     "phone": "+919999900009",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -159,7 +159,7 @@
     "sowing_deadline": "2026-10-23",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V022"
+    "village_id": "V024"
   },
   {
     "acres": 10.0,
@@ -167,8 +167,8 @@
     "field_id": "F-SEED-010",
     "harvest_confirmed": true,
     "harvest_date": "2026-10-15",
-    "lat": 30.109033,
-    "lng": 75.957046,
+    "lat": 30.08364,
+    "lng": 75.850508,
     "phone": "+919999900010",
     "risk_level": "GREEN",
     "risk_reasons": [],
@@ -177,7 +177,7 @@
     "sowing_deadline": "2026-10-24",
     "status": "HARVESTED",
     "updated_at": "2026-10-10T09:00:00",
-    "village_id": "V031"
+    "village_id": "V025"
   },
   {
     "acres": 14.0,

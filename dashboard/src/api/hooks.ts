@@ -81,7 +81,21 @@ export const useAlerts = () =>
   useQuery({ queryKey: ["alerts"], queryFn: async () => (await api<{ alerts: Alert[] }>("/api/alerts")).alerts });
 
 export const useLayer = (name: "firms" | "harvest", enabled: boolean) =>
-  useQuery({ queryKey: ["layer", name], queryFn: () => api<Layer>(`/api/layers/${name}`), enabled, staleTime: Infinity });
+  useQuery({
+    queryKey: ["layer", name],
+    queryFn: async () => {
+      const layer = await api<Layer>(`/api/layers/${name}`);
+      // Deployed: the API returns a short-lived S3 link instead of inline GeoJSON (layers are MBs).
+      if (layer.available && !layer.geojson && layer.url) {
+        const res = await fetch(layer.url);
+        if (!res.ok) throw new Error(`layer ${name}: ${res.status}`);
+        return { ...layer, geojson: (await res.json()) as GeoJSON.FeatureCollection };
+      }
+      return layer;
+    },
+    enabled,
+    staleTime: Infinity,
+  });
 
 export function useSendAlert() {
   const qc = useQueryClient();

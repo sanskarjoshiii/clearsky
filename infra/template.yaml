@@ -447,6 +447,9 @@ Resources:
   DataBucket:
     Type: AWS::S3::Bucket
     Properties:
+      CorsConfiguration:  # the dashboard downloads map layers straight from S3 via presigned URLs
+        CorsRules:
+          - { AllowedOrigins: [!Ref CorsOrigins], AllowedMethods: [GET], AllowedHeaders: ["*"], MaxAge: 3600 }
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

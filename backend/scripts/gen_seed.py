@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from clearsky.seed.generate import DEFAULT_SEED, SEED_DIR, generate, write
@@ -14,7 +15,15 @@ def main() -> None:
     p.add_argument("--fields", type=int, default=60, help="number of synthetic fields (50-80)")
     p.add_argument("--out", type=Path, default=SEED_DIR)
     args = p.parse_args()
-    data = generate(args.seed, args.fields)
+    # Keep FIRMS fire history (written by fetch_firms.py --apply-seed); otherwise `make seed` would erase it.
+    fire = None
+    existing = args.out / "villages.json"
+    if existing.exists():
+        fire = {
+            v["village_id"]: {k: v[k] for k in ("fire_points", "fire_history_score") if k in v}
+            for v in json.loads(existing.read_text(encoding="utf-8"))
+        }
+    data = generate(args.seed, args.fields, fire=fire)
     for path in write(data, args.out):
         print(f"wrote {path}")
     m = data["meta"]

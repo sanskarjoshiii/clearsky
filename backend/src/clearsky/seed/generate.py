@@ -14,7 +14,7 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
-from clearsky.config import REPO_ROOT
+from clearsky.config import REPO_ROOT, get_settings
 from clearsky.domain.geo import jitter_point, offset_point
 from clearsky.models import Baler, Buyer, BuyerType, Farmer, Field, FieldStatus, Language, Village
 from clearsky.models.dynamo import from_dynamo
@@ -220,10 +220,29 @@ def build_buyers(villages: dict[str, Village]) -> list[Buyer]:
     return out
 
 
+def red_reachable(villages: list[Village]) -> list[tuple[Village, int]]:
+    """Villages whose real fire history lets an open, bookable field score RED, with the most days to
+    sowing (3..6) that still does (risk.score_field with a baler free). Empty without FIRMS scores."""
+    s = get_settings()
+    out = []
+    for v in villages:
+        days = [
+            d
+            for d in range(3, 7)
+            if round(100 * (0.45 * (1 - d / s.sowing_window_days) + 0.30 * v.fire_history_score))
+            >= s.risk_red_at
+        ]
+        if days:
+            out.append((v, max(days)))
+    return out
+
+
 def build_farmers_and_fields(
     rng: random.Random, villages: list[Village], n_fields: int, ref: date
 ) -> tuple[list[Farmer], list[Field], list[str], list[str]]:
-    """Returns farmers, fields, field_ids to pre-book, and RED-candidate field_ids."""
+    """Returns farmers, fields, field_ids to pre-book, and RED-candidate field_ids.
+    With FIRMS scores, RED candidates go to villages where RED is reachable (same rng draws either way)."""
+    hot = red_reachable(villages)
     created = datetime.combine(ref - timedelta(days=10), time(9, 0))
     farmers: list[Farmer] = []
     fields: list[Field] = []
@@ -231,7 +250,11 @@ def build_farmers_and_fields(
     red: list[str] = []
     n_red = 10
     for i in range(n_fields):
-        v = villages[rng.randrange(len(villages))]
+        # Draw exactly as before and map onto the narrower choice, so the other fields don't change.
+        v = villages[pick := rng.randrange(len(villages))]
+        max_days = 6
+        if i < n_red and hot:
+            v, max_days = hot[pick % len(hot)]
         phone = f"+9199999{i + 1:05d}"
         farmers.append(
             Farmer(
@@ -248,7 +271,7 @@ def build_farmers_and_fields(
         if i < n_red:
             # Harvested 3–8 days ago, unbooked, farmer plans to sow soon → RED candidates for Phase 6.
             harvest = ref - timedelta(days=rng.randint(3, 8))
-            deadline = ref + timedelta(days=rng.randint(3, 6))  # urgent but still bookable
+            deadline = ref + timedelta(days=3 + (rng.randint(3, 6) - 3) % (max_days - 2))  # urgent, bookable
             status, confirmed = FieldStatus.HARVESTED, True
             red.append(f"F-SEED-{i + 1:03d}")
         else:
@@ -280,9 +303,17 @@ def build_farmers_and_fields(
     return farmers, fields, prebook, red
 
 
-def generate(seed: int = DEFAULT_SEED, n_fields: int = 60, ref: date = REFERENCE_DATE) -> dict[str, Any]:
+def generate(
+    seed: int = DEFAULT_SEED,
+    n_fields: int = 60,
+    ref: date = REFERENCE_DATE,
+    fire: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """`fire`: village_id → {fire_points, fire_history_score} from FIRMS (kept across regenerations)."""
     rng = random.Random(seed)
     villages = build_villages()
+    if fire:
+        villages = [v.model_copy(update=fire.get(v.village_id, {})) for v in villages]
     by_id = {v.village_id: v for v in villages}
     balers = build_balers(rng, by_id)
     buyers = build_buyers(by_id)

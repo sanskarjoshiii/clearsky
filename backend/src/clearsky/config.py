@@ -141,6 +141,24 @@ def get_settings() -> Settings:
     return Settings()
 
 
+def presigned_get_url(bucket: str, key: str, expires: int) -> str:
+    """Presigned GET on the bucket's *regional* endpoint. The global endpoint 307-redirects new buckets
+    outside us-east-1; browsers (CORS) and SigV4 signatures don't survive that redirect."""
+    import boto3
+    from botocore.config import Config
+
+    region = get_settings().aws_region
+    s3 = boto3.client(
+        "s3",
+        region_name=region,
+        endpoint_url=f"https://s3.{region}.amazonaws.com",
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+    )
+    return str(
+        s3.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expires)
+    )
+
+
 def reset_settings() -> None:
     """Drop cached settings and secrets (tests and scripts that change env vars)."""
     get_settings.cache_clear()

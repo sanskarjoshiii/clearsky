@@ -17,7 +17,7 @@ from typing import Any
 import boto3
 import httpx
 
-from clearsky.config import get_optional_secret, get_settings
+from clearsky.config import get_optional_secret, get_settings, presigned_get_url
 from clearsky.logging import get_logger
 
 log = get_logger(child="voice")
@@ -146,6 +146,4 @@ def synthesize(text: str, msg_id: str) -> str | None:
     s3 = boto3.client("s3", region_name=s.aws_region)
     key = f"media/out/{msg_id}.mp3"
     s3.put_object(Bucket=s.media_bucket, Key=key, Body=audio, ContentType="audio/mpeg")
-    return str(
-        s3.generate_presigned_url("get_object", Params={"Bucket": s.media_bucket, "Key": key}, ExpiresIn=3600)
-    )
+    return presigned_get_url(s.media_bucket, key, 3600)

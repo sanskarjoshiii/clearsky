@@ -19,7 +19,7 @@ from pydantic import Field as PField
 from clearsky import auth, clock
 from clearsky.channels import notify
 from clearsky.channels.templates import FIELD_CLEARED, FIELD_CLEARED_IMPACT
-from clearsky.config import get_settings
+from clearsky.config import get_settings, presigned_get_url
 from clearsky.domain import alerts as alerts_domain
 from clearsky.domain import demo, impact, matching, offers, registration, stats
 from clearsky.domain.geo import haversine_km
@@ -437,9 +437,7 @@ def get_layer(name: str) -> dict[str, Any]:
             s3.head_object(Bucket=s.data_bucket, Key=key)
         except Exception:
             return {"name": name, "available": False}
-        url = s3.generate_presigned_url(
-            "get_object", Params={"Bucket": s.data_bucket, "Key": key}, ExpiresIn=900
-        )
+        url = presigned_get_url(s.data_bucket, key, 900)
         return {"name": name, "available": True, "url": url}
     import json
 
