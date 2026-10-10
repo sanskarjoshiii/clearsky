@@ -37,3 +37,7 @@ dashboard/test-results/
 dashboard/playwright-report/
 dashboard/screens/
 *.tsbuildinfo
+
+# video (Remotion)
+video/out/
+video/node_modules
