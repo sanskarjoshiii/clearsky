@@ -1,15 +1,8 @@
 import { Navigate, createBrowserRouter, useLocation } from "react-router";
-import { homeFor, useAuth } from "./auth/AuthProvider";
 import { Loading, RequireRole } from "./auth/RequireRole";
 import { Login, RoleLogin } from "./pages/Login";
 import { Pending } from "./pages/register/Pending";
 import { Register } from "./pages/register/Register";
-
-function Home() {
-  const { me, loading } = useAuth();
-  if (loading) return <Loading />;
-  return <Navigate to={me ? homeFor(me.role) : "/login"} replace />;
-}
 
 /** Old links (runbook, bookmarks, `?as=` dev links) keep working: /officer/* → /admin/*, /operator → /baler. */
 function Moved({ from, to }: { from: string; to: string }) {
@@ -34,7 +27,8 @@ function NotFound() {
  * routes, layout and 404.
  */
 export const router = createBrowserRouter([
-  { path: "/", element: <Home /> },
+  // public home page (lazy: its video and sections stay out of the role apps)
+  { path: "/", lazy: () => import("./pages/home/Home"), hydrateFallbackElement: <Loading /> },
   // Separate sign-in per role. /login only offers baler and buyer; the admin address is not linked anywhere.
   { path: "/login", element: <Login /> },
   { path: "/admin/login", element: <RoleLogin key="officer" role="officer" /> },

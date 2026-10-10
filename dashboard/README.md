@@ -6,6 +6,7 @@ Three role apps, each with its own base path, layout, navigation and lazy-loaded
 
 | App | Route | What |
 |---|---|---|
+| **Home** (public) | `/` | Field-video hero, live stats, who it's for, how it works, register CTA (`src/pages/home/`) |
 | **Admin** (district officer, super admin) | `/admin` | Burn Risk Radar: map, villages by risk, **Alert village**, field drawer |
 | | `/admin/fields`, `/bookings`, `/balers`, `/buyers` | Every table, searchable |
 | | `/admin/demo` | DEMO_MODE only: demo clock, harvest wave, run risk/reminders, reset, runbook |
