@@ -1,9 +1,10 @@
 import { CalendarDays, History, Inbox, Route as RouteIcon, UserRound, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
-import { NavLink, Outlet } from "react-router";
+import { useEffect, useRef, type ReactNode } from "react";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { useOperatorMe } from "../../api/hooks";
 import { Logo } from "../../components/Shell";
 import { cx } from "../../components/ui";
+import { useSmoothScroll } from "../../lib/smoothScroll";
 
 interface Tab {
   to: string;
@@ -55,6 +56,14 @@ function TabLink({ tab, compact }: { tab: Tab; compact?: boolean }) {
 export function BalerLayout() {
   const me = useOperatorMe();
   const baler = me.data;
+  const scroller = useRef<HTMLElement>(null);
+  const lenis = useSmoothScroll(scroller);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    // a new tab starts at the top (smooth scrolling keeps its own position otherwise)
+    if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
+    else scroller.current?.scrollTo({ top: 0 });
+  }, [pathname, lenis]);
   const tabs = TABS.map((t) => (t.to === "/baler/requests" ? { ...t, badge: baler?.open_requests || undefined } : t));
   return (
     <div className="flex h-dvh w-full flex-col bg-frame">
@@ -75,8 +84,10 @@ export function BalerLayout() {
           ))}
         </nav>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto bg-canvas pb-[64px] md:pb-0">
-        <Outlet />
+      <main ref={scroller} data-scroll-surface className="min-h-0 flex-1 overflow-y-auto bg-canvas pb-[64px] md:pb-0">
+        <div>
+          <Outlet />
+        </div>
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-line bg-canvas md:hidden" aria-label="Baler">
         {tabs.map((t) => (

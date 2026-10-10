@@ -6,6 +6,7 @@ import { ApiError } from "./api/client";
 import { router } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { ToastProvider } from "./components/ui";
+import { SmoothScroll } from "./lib/smoothScroll";
 import "./styles.css";
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ToastProvider>
+          <SmoothScroll />
           <RouterProvider router={router} />
         </ToastProvider>
       </AuthProvider>

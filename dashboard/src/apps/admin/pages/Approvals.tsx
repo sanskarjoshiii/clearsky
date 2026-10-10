@@ -66,7 +66,7 @@ function ApplicationDrawer({ app, onClose }: { app: Application; onClose: () => 
             <X className="size-4" />
           </IconButton>
         </header>
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+        <div data-lenis-prevent className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           <div>
             <div className="flex items-center gap-2">
               <Chip>{ROLE_LABEL[app.role]}</Chip>

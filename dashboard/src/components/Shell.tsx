@@ -1,9 +1,10 @@
 import { LogOut, MessageCircle, X, type LucideIcon } from "lucide-react";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useRef, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router";
 import { useDemoClock } from "../api/hooks";
 import { useAuth } from "../auth/AuthProvider";
 import { fmtDay, initials } from "../lib/format";
+import { useSmoothScroll } from "../lib/smoothScroll";
 import { cx, IconButton } from "./ui";
 
 export interface NavItem {
@@ -181,8 +182,10 @@ export function TopBar({ crumbs, actions }: { crumbs: { label: string; icon?: Lu
 
 /** Scrollable page body with the reference's generous gutters. */
 export function PageBody({ children, wide }: { children: ReactNode; wide?: boolean }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  useSmoothScroll(scroller);
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div ref={scroller} data-scroll-surface className="min-h-0 flex-1 overflow-y-auto">
       <div className={cx("mx-auto flex flex-col gap-6 px-4 py-6 md:px-10 md:py-9", wide ? "max-w-[1400px]" : "max-w-[1160px]")}>{children}</div>
     </div>
   );

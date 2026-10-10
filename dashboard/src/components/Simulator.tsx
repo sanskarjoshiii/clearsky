@@ -143,7 +143,7 @@ export function Simulator({ onClose }: { onClose: () => void }) {
         ) : null}
       </div>
 
-      <div ref={scroller} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div ref={scroller} data-lenis-prevent className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {turns.length === 0 && !convo.isLoading ? (
           <div className="rounded-[var(--radius-card)] border border-dashed border-agent-line bg-agent-soft/40 p-4 text-[13px] text-ink-2">
             Type as a farmer would on WhatsApp, or tap a sample. Messages go through the real webhook processor and

@@ -35,7 +35,7 @@ export function FieldDrawer({ id, today, onClose, onAlert }: { id: string; today
             <X className="size-4" />
           </IconButton>
         </header>
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+        <div data-lenis-prevent className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           {q.isLoading ? <Skeleton className="h-40" /> : null}
           {q.error ? <ErrorNote error={q.error} onRetry={() => void q.refetch()} /> : null}
           {f ? (
