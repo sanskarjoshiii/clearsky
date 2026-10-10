@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     tts_provider: str = "polly"
     max_voice_seconds: int = 60
     transcribe_language: str = "hi-IN"
+    transcribe_timeout_s: int = 90  # batch jobs often take ~60 s; processor Lambda timeout is 120 s
     polly_voice: str = "Kajal"
     polly_engine: str = "neural"
 

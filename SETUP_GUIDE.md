@@ -126,7 +126,9 @@ Voice **replies** use Amazon Polly (voice "Kajal", already verified on the accou
 
 ## 3. New AWS access keys (Friend, then you)
 
-The key saved on this laptop (user `Kamran_03`, account 416121583611) now returns **`InvalidClientTokenId`**, so it was deleted or rotated. Nothing on AWS can be done until a working key is set.
+**Done 2026-10-10:** clearsky now uses Akshay's account **370042934648**. The shared IAM user `clearsky-dev` (AdministratorAccess) and the $10 budget already exist. Ask Akshay for the access key CSV (shared privately), then follow §3.3. The old `Kamran_03` key (account 416121583611) is no longer used.
+
+To rotate or remove the key later: `aws iam list-access-keys --user-name clearsky-dev`, then `aws iam delete-access-key --user-name clearsky-dev --access-key-id <id>`. Delete the user after the hackathon.
 
 ### 3.1 Friend: create a user and key for you
 1. Sign in to <https://console.aws.amazon.com>, region **ap-south-1 (Mumbai)**.
@@ -227,6 +229,18 @@ Try it locally first (no AWS): on <http://localhost:5173/login> press **Create a
 
 ---
 
+## 6a. Host the dashboard on S3 + CloudFront (what we use; no GitHub access needed)
+Stack `clearsky-dev-web` (`infra/web.yaml`): private S3 bucket + CloudFront (HTTPS, SPA routing).
+```bash
+aws cloudformation deploy --template-file infra/web.yaml --stack-name clearsky-dev-web --region ap-south-1   # once
+make web-deploy      # build dashboard/ with the backend stack's VITE_* values, upload, invalidate
+```
+Custom domain `clearsky.akkki.tech` (DNS on Vercel):
+1. ACM certificate in **us-east-1** (DNS validation) → add its validation CNAME in Vercel DNS → wait for `ISSUED`. Vercel adds CAA records (letsencrypt/pki.goog/sectigo) that make ACM fail with `CAA_ERROR`: add `@ CAA 0 issue "amazon.com"` first. A failed cert can't be retried; request a new one with `--idempotency-token <new>`.
+2. `aws cloudformation deploy ... --parameter-overrides DomainName=clearsky.akkki.tech CertificateArn=<arn>`.
+3. Vercel DNS: `clearsky` CNAME → the stack's `CloudFrontDomain`.
+4. Backend `CorsOrigins=https://clearsky.akkki.tech` in `samconfig.toml` → deploy.
+
 ## 6. Host the dashboard (AWS Amplify)
 
 1. AWS console → **AWS Amplify → Create new app → GitHub** → authorize → repo **`sanskarjoshiii/clearsky`**, branch **`main`**.
@@ -250,6 +264,19 @@ Try it locally first (no AWS): on <http://localhost:5173/login> press **Create a
 ## 7. WhatsApp Cloud API (Meta)
 
 Farmers only. Operators, buyers and officers never use WhatsApp.
+
+### 7.0 Test the webhook against your laptop (before any deploy)
+Meta needs a public HTTPS URL, so tunnel the local server:
+```bash
+make dev-cloud                 # API on :8787 with WA_MODE=cloud: reads WA_* from .env, really sends replies
+ngrok http 8787                # second terminal; copy the https://….ngrok-free.app URL
+```
+- Meta → **WhatsApp → Configuration → Webhook**: Callback URL = `<ngrok url>/webhook/whatsapp`, Verify token = `WA_VERIFY_TOKEN` → **Verify and save** → subscribe **`messages`**.
+- Message the test number from a test-recipient phone; the reply comes from your laptop (no SQS locally: the webhook processes inline).
+- The free ngrok URL changes every restart → update the callback URL each time. After deploying, switch it to the stack's `WebhookUrl`.
+- `make dev` (simulator mode) does **not** work for this: it replaces `WA_APP_SECRET`/`WA_VERIFY_TOKEN` with local dummies.
+- Voice notes locally: set `STT_PROVIDER=transcribe` and `MEDIA_BUCKET=<a private bucket>` in `.env` (we use `clearsky-dev-media-local-370042934648`, 1-day expiry). Transcribe batch jobs take ~10–60 s, so the reply is slow; `TRANSCRIBE_TIMEOUT_S` (default 90) caps the wait.
+- Uses the `clearsky` AWS profile (botocore can't read `aws login` credentials). The mock DB resets on restart.
 
 ### 7.1 Create the Meta app
 1. Go to <https://developers.facebook.com> → **My Apps → Create app** → use case **Other** → type **Business** → name `clearsky` → create (create or select a Business portfolio when asked).

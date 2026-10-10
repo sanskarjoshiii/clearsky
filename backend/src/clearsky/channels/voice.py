@@ -1,7 +1,7 @@
 """Voice notes: speech-to-text (STT_PROVIDER) and Hindi voice replies (TTS_PROVIDER=polly).
 
 STT providers:
-  transcribe  Amazon Transcribe batch job on S3 (MEDIA_BUCKET), polled ≤ 60 s
+  transcribe  Amazon Transcribe batch job on S3 (MEDIA_BUCKET), polled ≤ TRANSCRIBE_TIMEOUT_S (90 s)
   openai      any OpenAI-compatible POST {base}/audio/transcriptions (STT_MODEL_ID, STT_API_KEY or LLM_API_KEY)
   none        voice notes get a "please type" reply
 """
@@ -87,7 +87,7 @@ def _transcribe_aws(data: bytes, msg_id: str) -> str:
         OutputBucketName=s.media_bucket,
         OutputKey=out_key,
     )
-    deadline = time.monotonic() + 60
+    deadline = time.monotonic() + s.transcribe_timeout_s
     while time.monotonic() < deadline:
         job = tr.get_transcription_job(TranscriptionJobName=name)["TranscriptionJob"]
         status = job["TranscriptionJobStatus"]

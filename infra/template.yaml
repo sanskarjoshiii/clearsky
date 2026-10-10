@@ -272,6 +272,9 @@ Resources:
         Api:
           Type: HttpApi
           Properties: { ApiId: !Ref HttpApi, Path: "/api/{proxy+}", Method: ANY }
+        ApiPreflight:  # browsers send CORS preflight without a token; ANY above would 401 it
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: "/api/{proxy+}", Method: OPTIONS, Auth: { Authorizer: NONE } }
 
   RiskJobFunction:
     Type: AWS::Serverless::Function

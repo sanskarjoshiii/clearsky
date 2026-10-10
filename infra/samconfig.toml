@@ -15,4 +15,4 @@ lint = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
-parameter_overrides = "Stage=dev DemoMode=true"
+parameter_overrides = "Stage=dev DemoMode=true LlmProvider=openai LlmModelId=gpt-4o-mini WaMode=cloud SttProvider=transcribe TtsProvider=polly CorsOrigins=https://clearsky.akkki.tech"
