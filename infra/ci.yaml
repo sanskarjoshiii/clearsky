@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  clearsky CI: lets GitHub Actions deploy with short-lived OIDC credentials (no AWS keys stored in GitHub).
+  Only pushes to `main` of the configured repo can assume the role.
+  Deploy once:  aws cloudformation deploy --template-file infra/ci.yaml --stack-name clearsky-ci \
+                  --capabilities CAPABILITY_NAMED_IAM --region ap-south-1
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Default: sanskarjoshiii/clearsky
+  Branch:
+    Type: String
+    Default: main
+
+Resources:
+  GitHubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      Tags: [{ Key: project, Value: clearsky }]
+
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: clearsky-github-deploy
+      Description: GitHub Actions deploys clearsky (SAM backend + dashboard) from main
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidc }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:ref:refs/heads/${Branch}"
+      # SAM creates IAM roles, Lambdas, tables, Cognito, schedules...; hackathon scope, same as the clearsky-dev user.
+      # Delete this stack with the rest after the hackathon.
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/AdministratorAccess]
+      Tags: [{ Key: project, Value: clearsky }]
+
+Outputs:
+  DeployRoleArn:
+    Value: !GetAtt DeployRole.Arn

@@ -1,0 +1,73 @@
+name: deploy
+
+# Test, then deploy the backend (SAM stack clearsky-dev) and the dashboard (S3 + CloudFront) to AWS.
+# AWS access is OIDC → IAM role clearsky-github-deploy (infra/ci.yaml): no AWS keys in GitHub.
+# Secrets (WhatsApp, LLM, FIRMS) stay in SSM and are never touched here.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false  # never interrupt a CloudFormation update
+
+permissions:
+  contents: read
+  id-token: write  # OIDC token for AWS
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_ROLE_ARN: arn:aws:iam::370042934648:role/clearsky-github-deploy
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - name: Backend lint + types
+        run: make install lint
+      - name: Backend tests
+        run: make test
+      - name: Dashboard typecheck + tests
+        working-directory: dashboard
+        run: npm ci && npm run typecheck && npx vitest run
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    # No `environment:` here: it would change the OIDC subject the role trusts (ref:refs/heads/main).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Build backend (Lambda layer + SAM)
+        run: make build SAM="uv tool run --from aws-sam-cli sam"
+      - name: Deploy backend
+        working-directory: infra
+        run: uv tool run --from aws-sam-cli sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+      - name: Deploy dashboard
+        run: make web-deploy
+      - name: Smoke test
+        run: |
+          API=$(aws cloudformation describe-stacks --stack-name clearsky-dev --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)
+          curl -fsS "$API/health"
+          curl -fsS -o /dev/null https://clearsky.akkki.tech/

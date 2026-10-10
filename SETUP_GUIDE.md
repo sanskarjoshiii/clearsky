@@ -209,6 +209,16 @@ python -m uv tool run --from aws-sam-cli sam delete --stack-name clearsky-dev
 
 ---
 
+## 4.7 CI/CD (GitHub Actions)
+`.github/workflows/deploy.yml`: every push to `main` (or **Actions → deploy → Run workflow**) runs backend lint/types/tests and dashboard typecheck/tests, then `sam deploy` + `make web-deploy` + a smoke test.
+AWS access is OIDC (no keys in GitHub): IAM role `clearsky-github-deploy` from `infra/ci.yaml`, assumable only by `main` of this repo. One-time setup by whoever holds the AWS account:
+```bash
+aws cloudformation deploy --template-file infra/ci.yaml --stack-name clearsky-ci --capabilities CAPABILITY_NAMED_IAM --region ap-south-1
+```
+Secrets stay in SSM (`put_secrets.sh`); CI never reads or writes them. Never run `make seed` from CI: it wipes every table.
+
+---
+
 ## 5. Dashboard users (Cognito)
 
 **Balers and buyers register themselves.** On the login page they press **Create an account**, choose *Baler operator* or *Industry buyer*, verify their email with a 6-digit code, and fill in a short form. The officer then opens **Admin → Approvals**, checks the details and presses **Approve** (or **Reject** with a reason). Approval creates their baler/buyer record and lets them sign in to their own app; nobody has to create a user by hand.
