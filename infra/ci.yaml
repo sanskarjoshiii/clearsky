@@ -9,6 +9,10 @@ Parameters:
   GitHubRepo:
     Type: String
     Default: sanskarjoshiii/clearsky
+  GitHubRepoIds:
+    Type: String
+    Default: sanskarjoshiii@173174472/clearsky@1409840261
+    Description: owner@owner_id/repo@repo_id, used by GitHub's immutable OIDC subject (this repo has it on)
   Branch:
     Type: String
     Default: main
@@ -36,7 +40,9 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:ref:refs/heads/${Branch}"
+                token.actions.githubusercontent.com:sub:
+                  - !Sub "repo:${GitHubRepo}:ref:refs/heads/${Branch}"
+                  - !Sub "repo:${GitHubRepoIds}:ref:refs/heads/${Branch}"
       # SAM creates IAM roles, Lambdas, tables, Cognito, schedules...; hackathon scope, same as the clearsky-dev user.
       # Delete this stack with the rest after the hackathon.
       ManagedPolicyArns: [arn:aws:iam::aws:policy/AdministratorAccess]
