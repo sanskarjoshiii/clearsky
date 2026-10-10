@@ -33,6 +33,19 @@ def test_secret_from_env_and_missing(monkeypatch: pytest.MonkeyPatch) -> None:
         get_secret("NOPE")
 
 
+def test_rotated_secret_is_picked_up_after_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
+    import clearsky.config as cfg
+
+    now = [1000.0]
+    monkeypatch.setattr(cfg.time, "monotonic", lambda: now[0])
+    monkeypatch.setenv("WA_ACCESS_TOKEN", "old")
+    assert get_secret("WA_ACCESS_TOKEN") == "old"
+    monkeypatch.setenv("WA_ACCESS_TOKEN", "new")
+    assert get_secret("WA_ACCESS_TOKEN") == "old"  # still cached
+    now[0] += cfg.SECRET_TTL_S
+    assert get_secret("WA_ACCESS_TOKEN") == "new"
+
+
 def test_missing_secret_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     import clearsky.config as cfg
 

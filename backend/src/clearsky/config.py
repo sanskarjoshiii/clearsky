@@ -8,6 +8,7 @@ overrides SSM, which keeps local development and tests offline.
 from __future__ import annotations
 
 import os
+import time
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -195,7 +196,8 @@ def get_optional_secret(name: str) -> str | None:
         return None
 
 
-_secret_cache: dict[str, str] = {}
+_secret_cache: dict[str, tuple[str, float]] = {}
+SECRET_TTL_S = 300  # rotated keys (put_secrets.sh) reach warm Lambdas within 5 minutes, no redeploy
 
 
 class MissingSecretError(RuntimeError):
@@ -205,10 +207,11 @@ class MissingSecretError(RuntimeError):
 def get_secret(name: str) -> str:
     """Return a secret by env-var name, e.g. `get_secret("FIRMS_MAP_KEY")`.
 
-    Order: process env / .env → SSM SecureString `/clearsky/{stage}/<path>`. Cached per process.
+    Order: process env / .env → SSM SecureString `/clearsky/{stage}/<path>`. Cached for SECRET_TTL_S.
     """
-    if name in _secret_cache:
-        return _secret_cache[name]
+    cached = _secret_cache.get(name)
+    if cached and time.monotonic() - cached[1] < SECRET_TTL_S:
+        return cached[0]
     if name not in SECRET_NAMES:
         raise KeyError(f"unknown secret {name}")
 
@@ -219,7 +222,7 @@ def get_secret(name: str) -> str:
         raise MissingSecretError(
             f"{name} is not set (env var or SSM {get_settings().ssm_prefix}/{SECRET_NAMES[name]})"
         )
-    _secret_cache[name] = value
+    _secret_cache[name] = (value, time.monotonic())
     return value
 
 

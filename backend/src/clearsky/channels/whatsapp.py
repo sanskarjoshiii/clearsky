@@ -135,8 +135,18 @@ class WhatsAppClient:
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < 2:
                 time.sleep(0.5 * 2**attempt)
                 continue
+            try:  # Meta's reason (e.g. code 190 = expired token, 131030 = recipient not allowed)
+                err = resp.json().get("error", {})
+            except ValueError:
+                err = {}
             log.error(
-                "whatsapp send failed", extra={"status": resp.status_code, "to": mask_phone(body.get("to"))}
+                "whatsapp send failed",
+                extra={
+                    "status": resp.status_code,
+                    "to": mask_phone(body.get("to")),
+                    "meta_code": err.get("code"),
+                    "meta_message": str(err.get("message", ""))[:200],
+                },
             )
             raise WhatsAppError(f"Graph API {resp.status_code}: {resp.text[:300]}")
         raise WhatsAppError("unreachable")
