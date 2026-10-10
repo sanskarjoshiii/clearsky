@@ -186,7 +186,16 @@ export function Bookings() {
               { key: "village", header: "Village", render: (b) => <Chip>{b.village_name ?? b.village_id}</Chip> },
               { key: "acres", header: "Acres", align: "right", render: (b) => fmtNum(b.acres) },
               { key: "t", header: "Tonnes", align: "right", render: (b) => fmtNum(b.est_tonnes) },
-              { key: "buyer", header: "Straw to", render: (b) => b.buyer_name ?? <span className="text-faint">village storage</span> },
+              {
+                key: "buyer",
+                header: "Straw to",
+                render: (b) => (
+                  <span className="inline-flex flex-col">
+                    <span>{b.buyer_name ?? <span className="text-faint">village storage</span>}</span>
+                    {b.buyer_changed_at ? <span className="text-xs text-muted">re-matched to a better buyer</span> : null}
+                  </span>
+                ),
+              },
               { key: "pay", header: "Payout (demo)", align: "right", render: (b) => (b.farmer_payout > 0 ? fmtInr(b.farmer_payout) : "free") },
               ...(hasImpact
                 ? [

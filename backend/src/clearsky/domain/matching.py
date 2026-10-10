@@ -163,15 +163,13 @@ def find_candidates(
 
 def choose_buyer(field: Field, tonnes: float, buyers: list[Buyer]) -> tuple[Buyer, float] | None:
     """Buyer with the best net price (price − transport) among those with room and in radius."""
-    cost = get_settings().transport_cost_per_tonne_km
     best: tuple[float, Buyer, float] | None = None
     for b in buyers:
         if b.remaining_tonnes < tonnes:
             continue
-        dist = haversine_km(field.lat, field.lng, b.lat, b.lng)
+        net, dist = net_price(b, field.lat, field.lng)
         if dist > b.max_radius_km:
             continue
-        net = b.price_per_tonne - cost * dist
         if best is None or net > best[0] or (net == best[0] and b.buyer_id < best[1].buyer_id):
             best = (net, b, dist)
     return (best[1], round(best[2], 2)) if best else None
@@ -595,6 +593,9 @@ def mark_done(booking_id: str, baler_id: str | None = None) -> DoneResult:
         return DoneResult(ok=False, error="forbidden")
     if bk.status != BookingStatus.CONFIRMED:
         return DoneResult(ok=False, error="not_confirmed", booking=bk)
+    # Deliver to the best buyer at pickup time: one that joined or raised its price since booking wins.
+    if rematch_booking(booking_id):
+        bk = BookingsRepo().get(booking_id) or bk
     now = clock.now().isoformat()
     # Straw that was baled was not burnt: freeze the estimate with today's factors (empty if none are set).
     snap = impact.snapshot(bk.est_tonnes)
@@ -640,6 +641,119 @@ def mark_done(booking_id: str, baler_id: str | None = None) -> DoneResult:
 
     refresh_village(bk.village_id)
     return DoneResult(ok=True, booking=bk.model_copy(update={"status": BookingStatus.DONE, **snap}))
+
+
+# ----------------------------------------------------------------- buyer re-matching
+
+
+def net_price(buyer: Buyer, lat: float, lng: float) -> tuple[float, float]:
+    """(₹ per tonne after transport, distance km) for straw picked up at (lat, lng)."""
+    dist = haversine_km(lat, lng, buyer.lat, buyer.lng)
+    return buyer.price_per_tonne - get_settings().transport_cost_per_tonne_km * dist, dist
+
+
+def better_buyer(bk: Booking, buyers: list[Buyer]) -> Buyer | None:
+    """A buyer that pays strictly more after transport than the booking's current buyer, within its
+    own radius and with room for this straw; None if the current buyer is still the best."""
+    current = next((b for b in buyers if b.buyer_id == bk.buyer_id), None)
+    best_net = net_price(current, bk.lat, bk.lng)[0] if current else float("-inf")
+    best: Buyer | None = None
+    for b in buyers:
+        if b.buyer_id == bk.buyer_id or b.remaining_tonnes < bk.est_tonnes:
+            continue
+        net, dist = net_price(b, bk.lat, bk.lng)
+        if dist > b.max_radius_km:
+            continue
+        if net > best_net + 0.005 or (best is not None and net == best_net and b.buyer_id < best.buyer_id):
+            best, best_net = b, net
+    return best
+
+
+def _move_buyer(bk: Booking, new: Buyer) -> bool:
+    """Point an open booking at `new` and move its reservation, in one transaction.
+
+    Conditional on the booking's status and buyer as read and on `new` still having room, so a
+    concurrent accept, cancel, Done or demand change makes this a no-op instead of a double count.
+    The farmer's payout is what they were promised and does not change.
+    """
+    now = clock.now()
+    sets = "buyer_id = :new, buyer_price_per_tonne = :price, buyer_changed_at = :now"
+    values: dict[str, object] = {
+        ":new": new.buyer_id,
+        ":price": new.price_per_tonne,
+        ":now": now.isoformat(),
+        ":was": bk.status.value,
+    }
+    if bk.buyer_id:
+        sets += ", previous_buyer_id = :old"
+        values[":old"] = bk.buyer_id
+    tx = TxBuilder()
+    tx.update(
+        "Bookings",
+        {"booking_id": bk.booking_id},
+        "SET " + sets,
+        values=values,
+        names={"#s": "status"},
+        condition="#s = :was AND " + ("buyer_id = :old" if bk.buyer_id else "attribute_not_exists(buyer_id)"),
+    )
+    if bk.buyer_id:
+        tx.update(
+            "Buyers",
+            {"buyer_id": bk.buyer_id},
+            "SET reserved_tonnes = reserved_tonnes - :t",
+            values={":t": bk.est_tonnes},
+            condition="attribute_exists(buyer_id)",
+        )
+    tx.update(
+        "Buyers",
+        {"buyer_id": new.buyer_id},
+        "SET reserved_tonnes = reserved_tonnes + :t",
+        values={
+            ":t": bk.est_tonnes,
+            ":demand": new.demand_tonnes,
+            ":max_reserved": new.demand_tonnes - bk.est_tonnes,
+        },
+        condition="demand_tonnes = :demand AND reserved_tonnes <= :max_reserved",
+    )
+    try:
+        tx.execute()
+    except TransactionCancelled as e:
+        log.info("buyer re-match skipped", extra={"booking_id": bk.booking_id, "reasons": e.reasons})
+        return False
+    log.info(
+        "buyer re-matched",
+        extra={"booking_id": bk.booking_id, "from": bk.buyer_id, "to": new.buyer_id, "tonnes": bk.est_tonnes},
+    )
+    return True
+
+
+def rematch_booking(booking_id: str) -> bool:
+    """Send one open booking's straw to a better-paying buyer if there is one now."""
+    bk = BookingsRepo().get(booking_id)
+    if bk is None or bk.status not in OPEN_BOOKING_STATUSES:
+        return False
+    new = better_buyer(bk, BuyersRepo().list_all())
+    return _move_buyer(bk, new) if new else False
+
+
+def rematch_open_bookings() -> int:
+    """Re-check every open booking against today's buyers (run when a buyer joins or changes their
+    demand, price or radius). Oldest booking first; buyers are re-read after every move because
+    reservations change. Delivered (DONE) straw is never moved. Returns how many bookings moved."""
+    open_bookings = sorted(
+        (b for b in BookingsRepo().list_all() if b.status in OPEN_BOOKING_STATUSES),
+        key=lambda b: (b.created_at, b.booking_id),
+    )
+    buyers = BuyersRepo().list_all()
+    moved = 0
+    for bk in open_bookings:
+        new = better_buyer(bk, buyers)
+        if new and _move_buyer(bk, new):
+            moved += 1
+            buyers = BuyersRepo().list_all()
+    if moved:
+        log.info("buyers re-matched", extra={"moved": moved, "checked": len(open_bookings)})
+    return moved
 
 
 def reschedule(field_id: str, new_harvest_date: date, today: date | None = None) -> BookingResult:

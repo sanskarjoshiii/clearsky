@@ -133,6 +133,9 @@ class Booking(_Model):
     responded_at: datetime | None = None
     decline_reason: str | None = None
     decline_note: str | None = None
+    # straw re-matched to a better-paying buyer (matching.rematch_*); the farmer payout is unchanged
+    previous_buyer_id: str | None = None
+    buyer_changed_at: datetime | None = None
     # pollution-avoided snapshot written when the booking becomes DONE (domain/impact.py):
     # kg per pollutant, the tonnes it was computed from, and the fingerprint of the factors used
     impact: dict[str, float] | None = None

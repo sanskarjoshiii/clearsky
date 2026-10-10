@@ -159,6 +159,9 @@ export interface BookingRow {
   responded_at?: string | null;
   decline_reason?: string | null;
   decline_note?: string | null;
+  /** Set when the straw was re-matched to a better-paying buyer (farmer payout unchanged). */
+  previous_buyer_id?: string | null;
+  buyer_changed_at?: string | null;
   /** Pollution-avoided snapshot, set when the booking is DONE (estimate). */
   impact?: ImpactKg | null;
   farmer_name?: string | null;

@@ -519,7 +519,13 @@ def list_applications() -> dict[str, Any]:
 def application_approve(application_id: str) -> dict[str, Any]:
     p = require("officer")
     approved, entity = registration.approve(application_id, p.sub)
-    return {"application": _application_json(approved), "entity": entity.model_dump(mode="json")}
+    # a new buyer competes for straw that is booked but not yet picked up
+    rematched = matching.rematch_open_bookings() if approved.role == "buyer" else 0
+    return {
+        "application": _application_json(approved),
+        "entity": entity.model_dump(mode="json"),
+        "rematched": rematched,
+    }
 
 
 class RejectRequest(BaseModel):
@@ -634,9 +640,15 @@ def buyer_demand() -> dict[str, Any]:
     if req.demand_tonnes < b.reserved_tonnes:
         raise ApiError(400, "bad_request", f"demand can't be below already reserved {b.reserved_tonnes:g} t")
     updated = b.model_copy(update=req.model_dump())
-    BuyersRepo().put(updated)  # existing bookings keep their price; new bookings use these values
+    BuyersRepo().put(updated)
     SettingsRepo().add_demand_change(b.buyer_id, {"at": clock.now().isoformat(), **req.model_dump()})
-    return {"buyer": updated.model_dump(mode="json") | {"remaining_tonnes": updated.remaining_tonnes}}
+    # open bookings go to whoever now pays most after transport (this buyer or another one)
+    rematched = matching.rematch_open_bookings()
+    fresh = BuyersRepo().get(b.buyer_id) or updated
+    return {
+        "buyer": fresh.model_dump(mode="json") | {"remaining_tonnes": fresh.remaining_tonnes},
+        "rematched": rematched,
+    }
 
 
 @app.get("/api/buyers/me/demand/history")

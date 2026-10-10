@@ -349,6 +349,13 @@ Rules added during the build:
 - `book_pickup` on an already-booked field returns the existing booking (`already_booked=true`), so retries are safe.
 - `Booking` stores `village_id`, `lat`, `lng` for the cluster bonus and stop ordering.
 
+**Automatic buyer re-matching** (`matching.rematch_open_bookings`, `rematch_booking`). The buyer rule above (best net price = price − transport × km, within the buyer's radius, with room) is applied again, with no manual step:
+- when the officer **approves a new buyer** (`POST /api/applications/<id>/approve`, response `rematched`);
+- when a buyer **changes demand, price or radius** (`PUT /api/buyers/me/demand`, response `rematched`);
+- **at pickup**: `mark_done` re-checks the booking first, so the straw is delivered to the best buyer at that moment.
+
+Only open bookings (OFFERED, CONFIRMED) move, and only to a buyer that pays strictly more after transport; delivered (DONE) straw never moves. Each move is one transaction: the booking points at the new buyer (`previous_buyer_id`, `buyer_changed_at`, new `buyer_price_per_tonne`), the old buyer's `reserved_tonnes` goes down and the new buyer's goes up under the same room condition as `commit`. The farmer's `farmer_payout` is what they were promised and is not changed. The Bookings table shows "re-matched to a better buyer".
+
 Defaults (in `config.py`, all overridable): `W_DIST=1.0`, `W_DELAY=2.0`, `W_CLUSTER=5.0`, `SOWING_BUFFER_DAYS=2`, `MATCHER_MAX_ATTEMPTS=3`.
 
 ### 4.1 Offers: the baler says yes or no (`domain/matching.py`, `domain/offers.py`)
