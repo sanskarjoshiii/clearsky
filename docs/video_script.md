@@ -90,14 +90,14 @@ Each person on camera (or a face card + name), 5–7 s each. Lower-third: **name
 
 ## 5. Live demo B: website walkthrough · 2:04 – 2:59 (55 s)
 
-**Screen recording of the live site** (clearsky.akkki.tech), with Sanskar's voice-over. **The voice-over is written after the recording is done.** Planned order and time boxes:
+**Screen recordings of the live site** (clearsky.akkki.tech), following संस्कार's booking from demo A (Sangrur, 5 acres, harvest 12 Oct). Four clips, 1920×1080, 30 fps, framed, with cursor, click ripples and smooth zooms: `demo-1-home.mp4`, `demo-2-super-admin.mp4`, `demo-3-baler.mp4` (phone frame), `demo-4-buyer.mp4`. Voice-over per clip below (each fits its slot at a calm pace). Re-record any clip with `video/screen/` (see its README).
 
 | Time | Screen (planned) | Voice-over |
 |---|---|---|
-| 2:04 – 2:14 | **Home page**: hero film, live field data, who it's for | *(to be added after recording)* |
-| 2:14 – 2:29 | **Super admin**: Burn Risk Radar, a red village → Alert → WhatsApp offer; Bookings (the booking from demo A); Approvals | *(to be added after recording)* |
-| 2:29 – 2:44 | **Baler**: request from demo A → Accept → route → **Done** | *(to be added after recording)* |
-| 2:44 – 2:59 | **Buyer**: straw on the way, deliveries, demand and price | *(to be added after recording)* |
+| 2:04 – 2:14 | **Home page** (`demo-1-home.mp4`, 10 s): hero film with a slow push-in → click **Field data** → zoom on "Acres this season" and "Straw routed to industry" → glide to the roles carousel → click **Next** (Farmers → Baler operators) | "Our home page tells the whole story: live field data straight from the platform, and one app for every role, from farmer to district officer." |
+| 2:14 – 2:29 | **Super admin** (`demo-2-super-admin.mp4`, 15 s): Burn Risk Radar → zoom on the KPIs (acres booked, straw routed) and the map → **Alert** on a village opens the WhatsApp-offer dialog (cancelled in the take, nothing sent) → **Bookings → All** → zoom on संस्कार's 13 Oct booking (baler Jaswinder Gill, buyer Voxton, *Offered*) → **Approvals → Approved** (balers and buyers approved by the officer) | "The officer's Burn Risk Radar scores every field by the hour, and one click alerts a whole village on WhatsApp. Here's Sanskar's booking, already offered to the nearest baler. New balers and buyers are approved right here." |
+| 2:29 – 2:44 | **Baler, on a phone** (`demo-3-baler.mp4`, 15 s): Today shows "1 new request waiting" → **Requests** → संस्कार's card (Sangrur, 1.2 km from base, pickup Tue 13 Oct, 5 acres, ~12.5 t) → **Accept · स्वीकार** → **Schedule** → 13 Oct → the stop on the route map → **Done · हो गया** → "Yes, field cleared" → *Field cleared* (pop-up: "The farmer got a WhatsApp message") | "On the baler's phone, Sanskar's request shows the place, acres and pickup day. One tap accepts it, and Sanskar gets a WhatsApp confirmation. On pickup day it's on the route: tap Done, and the field is cleared." |
+| 2:44 – 2:59 | **Buyer** (`demo-4-buyer.mp4`, 15 s): Voxton's overview → zoom on *Booked to you 12.5 t* and *Delivered 12.5 t* → incoming-straw chart → **Deliveries**: 13 Oct · Sangrur · 12.5 t · 1.2 km · ₹5,000 (demo) · Done → Export CSV → **Demand and price**: current values and change history | "The buyer, a pellet plant, sees every tonne coming its way. Sanskar's twelve and a half tonnes are already delivered, and the plant sets its own demand and price; clearsky routes straw to whoever pays best after transport." |
 
 ---
 

@@ -5,6 +5,7 @@ import { S2Idea, S2_DUR } from "./scenes/S2Idea";
 import { S3How, S3_DUR } from "./scenes/S3How";
 import { S4Aws, S4_DUR } from "./scenes/S4Aws";
 import { S5Impact, S5_DUR } from "./scenes/S5Impact";
+import { S6ImpactOverlay, S6_DUR } from "./scenes/S6ImpactOverlay";
 import { C, H, SANS, W } from "./theme";
 
 /**
@@ -46,6 +47,19 @@ export function Root() {
           height={H}
         />
       ))}
+      {/* Transparent overlay (no background): render as a PNG sequence or ProRes 4444 to keep the alpha. */}
+      <Composition
+        id="S6-ImpactOverlay"
+        component={() => (
+          <AbsoluteFill style={{ fontFamily: SANS, color: C.ink, background: "transparent" }}>
+            <S6ImpactOverlay />
+          </AbsoluteFill>
+        )}
+        durationInFrames={S6_DUR}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
     </>
   );
 }

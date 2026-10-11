@@ -2,347 +2,388 @@
 
 <h1 align="center">clearsky</h1>
 
-**Stop stubble fires before they start, by booking straw pickup over WhatsApp.**
+<p align="center"><strong>Stop stubble fires before they start, by booking straw pickup over WhatsApp.</strong></p>
 
-> 🧰 **Setting up AWS, Bedrock, FIRMS, WhatsApp numbers or GitHub?** Follow [`SETUP_GUIDE.md`](SETUP_GUIDE.md).
->
-> 🤖 **Using an AI assistant on this repo?** Read [`CONTEXT.md`](CONTEXT.md) first. It is the living summary of what's built, what's decided and what's next, and it is updated after every change.
+<p align="center">
+  <a href="https://clearsky.akkki.tech">Live site</a> ·
+  <a href="blog/clearsky-blog.md">Blog post</a> ·
+  <a href="IMPLEMENTATION.md">Design</a> ·
+  <a href="SETUP_GUIDE.md">Setup guide</a>
+</p>
+
+![clearsky: the fire starts at 5 pm, the satellite left at 1:30](blog/img/cover.jpg)
+
+clearsky is a WhatsApp-first logistics system for paddy straw. A farmer sends one message or voice note in Hindi, Punjabi, Hinglish or English. An AI agent registers the field, books the nearest baler that can clear it before the wheat-sowing deadline, and routes the straw to the buyer who pays the most after transport. District officers get a Burn Risk Radar that flags fields likely to burn *before* a fire is lit.
+
+Built by **Team Atherion** for the **WeMakeDevs x AWS Environmental Hacks** (Bharat Builds Tour, Event 02, 8–11 October 2026). Tracks: **Air** (stubble burning) and **Waste & Energy** (biomass).
 
 > Others measure the smoke. We remove the reason to light the fire.
 
-Built for **WeMakeDevs × AWS Environmental Hacks** (Bharat Builds Tour, Event 02, Oct 8–11, 2026). Track: **Air** (stubble burning). It also fits Waste & Energy (biomass).
+---
+
+## Contents
+
+1. [The problem](#1-the-problem)
+2. [The solution](#2-the-solution)
+3. [Users and interfaces](#3-users-and-interfaces)
+4. [How a booking works](#4-how-a-booking-works)
+5. [Features](#5-features)
+6. [Architecture](#6-architecture)
+7. [AWS services](#7-aws-services)
+8. [Tech stack](#8-tech-stack)
+9. [Repository structure](#9-repository-structure)
+10. [Getting started](#10-getting-started)
+11. [Configuration](#11-configuration)
+12. [Deployment](#12-deployment)
+13. [Impact and emission factors](#13-impact-and-emission-factors)
+14. [Documentation](#14-documentation)
+15. [Roadmap](#15-roadmap)
+16. [Team](#16-team)
+17. [Sources](#17-sources)
 
 ---
 
-## 1. The Problem
+## 1. The problem
 
-Every October–November, paddy stubble burning in Punjab and Haryana adds heavily to North India's smog.
+Every October and November, paddy stubble burning in Punjab and Haryana adds heavily to North India's smog.
 
-- **Fires moved to the evening, not away.** Monitoring satellites (MODIS/VIIRS) observe between about 10:30 am and 1:30 pm. iFOREST found that **over 90% of large farm fires in Punjab in 2024–25 happened after 3 pm**, compared with 3% in 2021.
-- **The burnt area is still large.** Punjab's burnt area was **~20,000 sq km in 2025**, down from a peak of 31,447 sq km in 2022, while official fire counts fell to 5,114.
-- **The farmer's window is small.** There are only **20–25 days** between paddy harvest and wheat sowing.
-- **Straw has no buyer at the right time.** For the farmer, collecting and transporting straw costs more than it earns. Industries that want biomass struggle to get **consistent supply**.
-- **Demand is growing.** Industrial boilers' straw use went from 8.8 lakh tonnes (2022) to a projected 41 lakh tonnes (2025). Pellet plants went from 18 to 37. Thermal plants within 300 km of Delhi are asked to co-fire up to 10% biomass.
-- **The machines exist.** Punjab has about 1,48,000 crop-residue-management machines and is targeting 1,500 custom hiring centres.
+- **The fires moved to the evening, not away.** Monitoring satellites pass over between about 10:30 am and 1:30 pm. In 2024 and 2025, over 90% of large farm fires in Punjab were lit after 3 pm, compared with 3% in 2021.
+- **The burnt area is still large.** Official fire counts fell to 5,085 by late November 2025 (10,443 the year before), yet Punjab's burnt area was still about 20,000 km² in 2025, down from a peak of 31,447 km² in 2022.
+- **The farmer's window is short.** Only a few weeks separate the paddy harvest from wheat sowing, and clearing straw costs time and money that a match does not.
+- **The machines exist.** Punjab reports about 1,48,000 crop-residue-management machines and 1,331 custom hiring centres, but no shared schedule tells a baler which field is ready tomorrow.
+- **The buyers exist.** About 11 lakh tonnes of paddy straw went into industrial boilers in 2023, and pellet plants keep opening. What they lack is steady supply.
 
-**The gap:** farmers, balers and buyers are not connected in time. It is a **logistics problem**, not an awareness problem.
+Farmers, balers and buyers need each other and do not meet in time. This is a **logistics problem**, not an awareness problem.
 
----
+## 2. The solution
 
-## 2. The Solution
+clearsky connects the three groups at the moment it matters:
 
-clearsky is a **WhatsApp-first coordination system for farmers**, with a simple web dashboard for everyone else. It:
+1. A farmer registers a field with **one WhatsApp message or voice note**. No app and no login.
+2. The matcher **offers the booking to the best baler** with a free day before the sowing deadline. The farmer is told the booking is confirmed only after a baler accepts.
+3. The straw is **routed to the buyer with the best net price** (price minus transport) and re-matched automatically when better demand appears.
+4. Baler operators get a **mobile-first dashboard**: requests to accept, the day's stops on a map, and a Done button per field.
+5. District officers get the **Burn Risk Radar**: every harvested but unbooked field is scored hourly, and one click alerts the whole village on WhatsApp.
 
-1. Lets a farmer register a field with **one voice note** in Hindi or Punjabi. The WhatsApp agent only talks to farmers: it collects their details and replies with a clear answer.
-2. **Automatically books** the nearest free baler before the sowing deadline.
-3. Gives **baler operators a simple dashboard** with their daily stops, a map, and a "Done" button per field.
-4. **Routes the straw to a paying buyer** (pellet plant, CBG plant, boiler, or biomass/thermal plant).
-5. Gives district officers a **Burn Risk Radar** that shows fields that are *harvested but not booked*, meaning fires that are likely to happen soon, and lets them dispatch help with one click.
+## 3. Users and interfaces
 
----
-
-## 3. Roles
-
-| Role | Interface | Does | Gets |
+| User | Interface | Does | Gets |
 |---|---|---|---|
-| 👨‍🌾 **Farmer** | WhatsApp (voice/text) | Shares name, village, acres, harvest date; confirms harvest | Confirmed clearance date, payout or free clearance, reminders |
-| 🚜 **Baler operator** (CHC) | Web dashboard (simple, mobile-first) | Signs in; sets machine capacity and availability; follows daily route; marks fields done | Full, clustered workdays |
-| 🏭 **Buyer** | Web dashboard | Posts demand and price per tonne | Reliable straw supply and a forecast |
-| 🏛️ **District officer** | Web dashboard (Burn Risk Radar) | Monitors risk; alerts villages; flags villages to nearby balers | Prevents fires instead of fining after |
+| Farmer | WhatsApp (text or voice) | Shares name, village, acres and harvest date; confirms harvest | A confirmed clearance date, an estimated payout and reminders |
+| Baler operator | Web dashboard `/baler` (mobile-first) | Accepts or declines requests, sets capacity and availability, marks fields done | Full, clustered working days |
+| Buyer | Web dashboard `/buyer` | Sets demand, price per tonne and pickup radius | Reliable straw supply and a delivery forecast |
+| District officer | Web dashboard `/admin` | Monitors risk, alerts villages, approves new balers and buyers | Prevention before a fire, instead of a fine after it |
 
-**Channel rule:** WhatsApp is for **farmers only**. The agent's job is to collect the farmer's details, book through the backend, and reply properly (text, plus voice if they sent voice). Operators, buyers and officers never use WhatsApp; they use the dashboard.
+**Channel rule.** WhatsApp is used by farmers only. The agent collects the farmer's details, books through backend tools and replies in the farmer's language (with a voice reply when the farmer sent voice). Operators, buyers and officers use the dashboard and are never messaged on WhatsApp.
 
----
+**Onboarding.** Balers and buyers register themselves through `/register`. An officer approves or rejects each application on `/admin/approvals`, and only then is a role granted. No user can assign themselves a role.
 
-## 4. Example
+## 4. How a booking works
 
-> **Gurpreet** (8 acres, Bhawanigarh) sends a voice note: *"Mera 8 acre dhaan 24 tareekh ko katega."* ("My 8 acres of paddy will be harvested on the 24th.")
-> → The agent extracts 8 acres, harvest on Oct 24, and the village Bhawanigarh.
-> → The matcher finds a CHC baler 6 km away, free on Oct 25, and clusters Gurpreet with 2 more fields in the same village.
-> → It routes about 20 tonnes to a pellet plant 40 km away.
-> → Gurpreet gets a Hindi voice reply: *"Aapka khet 25 tareekh ko saaf hoga. Koi kharcha nahi."* ("Your field will be cleared on the 25th. No cost.")
-> → The baler operator opens the dashboard and sees Gurpreet's field as stop #2 on Oct 25.
-> → Oct 24: reminder sent, Gurpreet replies "haan" (yes). Oct 25: field baled, operator taps **Done**, Gurpreet gets "Khet saaf ho gaya ✅". Straw delivered. **No fire.**
->
-> Next door, **Harjit** harvested on Oct 22 and never booked. The radar marks the field **RED**. The officer clicks **Alert village**, Harjit gets a WhatsApp offer and books, and the pin turns **GREEN**.
+![One voice note, from the farmer's message to a cleared field](blog/img/d2-one-voice-note.png)
 
----
+1. **Gurpreet** (8 acres, Bhawanigarh) sends a voice note: *"Mera 8 acre dhaan 24 tareekh ko katega."* ("My 8 acres of paddy will be harvested on the 24th.")
+2. Amazon Transcribe converts the audio to text, and the agent extracts the name, village, acreage and harvest date, asking only for what is missing.
+3. The matcher selects the best baler-day (distance, delay and a village-cluster bonus) and the best buyer (net price), and reserves all of it in **one DynamoDB transaction**.
+4. The farmer is told the request has been sent to a baler. The baler sees it on the dashboard with a countdown.
+5. When the baler **accepts**, the farmer receives the confirmed date and estimated payout. If the baler **declines** or does not answer within the SLA, the offer moves to the next-best baler. After three attempts, the field appears on the officer's radar as "no baler accepted".
+6. A reminder goes out the day before. After baling, the operator taps **Done**, the farmer is notified, the straw is delivered, and the impact figures are recorded.
+
+![A booking is a question until a baler says yes](blog/img/d3-offer-lifecycle.png)
 
 ## 5. Features
 
-- 🎙️ **Voice-first WhatsApp bot for farmers**: Hindi voice in and out, Punjabi/Hindi/English text. No app, no login.
-- 🤖 **AI agent** (Strands Agents with any LLM: OpenAI-compatible, Anthropic, Gemini or Amazon Bedrock) that collects the farmer's details from free-form messages, calls booking tools, and replies with only what the tools return. A deterministic **rules bot** (Hindi, Punjabi, Hinglish, English) works with no LLM at all and takes over if the LLM fails.
-- 🧮 **Matching engine** that clusters fields by village, respects baler capacity and sowing deadlines, and picks the best buyer by net price and distance.
-- 🔒 **Double-booking safe** through DynamoDB transactions with conditional capacity checks.
-- ⏰ **Farmer reminders** on WhatsApp: a day-before harvest confirmation and a pickup notice.
-- 🗺️ **Burn Risk Radar**: risk-scored fields, village risk, NASA FIRMS fire-history heatmap, and one-click village alerts.
-- 🚜 **Operator dashboard**: sign in, see the day's stops on a map, tap "Done" per field, set capacity and availability, see villages the officer has flagged nearby.
-- 🏭 **Buyer dashboard**: post demand, see the incoming tonnage forecast and deliveries.
-- 📊 **Impact counters**: acres cleared, tonnes routed, farmer payouts, fires prevented.
-- 🛰️ **(Stretch) Satellite harvest detection**: Sentinel-2 NDVI drop from AWS Open Data, which finds harvested land that isn't registered.
-- 🎬 **Demo mode**: a simulated clock to replay a whole season in minutes.
+**Farmer agent**
+- WhatsApp text and voice in Hindi, Punjabi, Hinglish and English; Hindi voice replies through Amazon Polly.
+- Built with the **Strands Agents SDK** and nine tools: find farmer, resolve village, register, add field, book, list bookings, confirm harvest, reschedule and cancel.
+- Any LLM provider through `LLM_PROVIDER` (`openai` and OpenAI-compatible, `anthropic`, `gemini`, `bedrock`), plus a deterministic **rules bot** that works with no LLM and takes over if the LLM fails.
+- Tools are bound to the verified sender's phone number, so the model can only act for the person who sent the message.
 
----
+**Matching and bookings**
+- Baler selection by distance, delay to the sowing deadline and village clustering, within each machine's daily capacity.
+- Buyer selection by net price after transport (price minus a per-tonne-per-km cost), with automatic re-matching when a buyer is approved, changes demand, or a field is marked done. Delivered straw is never moved and the farmer's promised payout never changes.
+- Double booking is prevented by DynamoDB transactions with conditional capacity checks.
+- Baler offers with accept, decline, timeout and escalation.
+
+**Burn Risk Radar**
+- A risk score from 0 to 100 for each harvested but unbooked field, recalculated every hour:
+  `100 x (0.45 x urgency + 0.25 x no_capacity + 0.30 x fire_history)`, scaled by 0.35 if the field is not yet harvested. Red at 60 and above, yellow at 40 and above.
+- Fire history from NASA FIRMS (VIIRS) satellite detections, October to November 2022–2025.
+- One-click village alerts that send every unbooked farmer in the village a pickup offer on WhatsApp.
+
+**Dashboards**
+- **Admin:** radar, fields, bookings, balers, buyers, approvals, impact, demo controls and a built-in WhatsApp farmer simulator.
+- **Baler:** today's route on a map, requests, schedule, history and profile (capacity and availability).
+- **Buyer:** overview, demand and price, deliveries and profile.
+- **Public:** home page at `/` and an impact page at `/impact`.
+
+**Operations**
+- Reminders at 6 pm India time, offer expiry checks every 15 minutes, risk scoring every hour.
+- A dead-letter queue and CloudWatch alarms with email notification through SNS.
+- A demo mode with a simulated clock to replay a season in minutes.
 
 ## 6. Architecture
 
+The backend is fully serverless: between two messages nothing runs and nothing is billed.
+
+![clearsky on AWS](blog/img/d4-aws-architecture.png)
+
 ```mermaid
 flowchart LR
-  F[👨‍🌾 Farmer<br/>WhatsApp] -->|voice/text| WA[WhatsApp Cloud API]
+  F[Farmer<br/>WhatsApp] -->|text / voice| WA[WhatsApp Cloud API]
   WA -->|webhook| APIGW[API Gateway<br/>HTTP API]
-  APIGW --> WH[λ webhook<br/>verify + dedupe]
-  WH --> SQS[(SQS inbound)]
-  SQS --> PROC[λ message-processor]
-  PROC -->|ogg audio| S3A[(S3 media)]
-  S3A --> TR[Amazon Transcribe<br/>hi-IN]
-  PROC --> AG[Strands Agent<br/>LLM API or rules bot]
-  AG -->|tools| DDB[(DynamoDB)]
-  AG --> MT[Matcher]
-  MT --> DDB
-  PROC --> PL[Amazon Polly<br/>Hindi voice]
-  PL --> S3A
+  APIGW --> WH[Lambda: webhook<br/>verify signature, dedupe]
+  WH --> SQS[(SQS inbound + DLQ)]
+  SQS --> PROC[Lambda: processor]
+  PROC --> TR[Amazon Transcribe<br/>hi-IN]
+  PROC --> AG[Strands agent<br/>LLM or rules bot]
+  AG -->|tools| MT[Matcher]
+  MT --> DDB[(DynamoDB<br/>12 tables)]
+  PROC --> PL[Amazon Polly<br/>Kajal, Hindi]
+  PL --> S3M[(S3 media)]
   PROC -->|reply| WA
 
-  SCH[EventBridge Scheduler] --> RISK[λ risk-scorer<br/>hourly]
-  SCH --> REM[λ reminders<br/>daily 6pm IST]
+  SCH[EventBridge Scheduler] --> RISK[Lambda: risk scorer<br/>hourly]
+  SCH --> OFF[Lambda: offers job<br/>every 15 min]
+  SCH --> REM[Lambda: reminders<br/>6 pm IST]
   RISK --> DDB
-  REM -->|farmer reminders| WA
+  OFF --> DDB
+  REM --> WA
 
-  U[🏛️ Officer · 🏭 Buyer · 🚜 Operator] --> DASH
-  DASH[React dashboard<br/>Amplify Hosting] -->|Cognito JWT| APIGW
-  APIGW --> API[λ api]
+  U[Officer / Buyer / Baler] --> CF[CloudFront + S3<br/>React dashboard]
+  CF -->|Cognito JWT| APIGW
+  APIGW --> API[Lambda: api]
   API --> DDB
-  API --> LOC[Amazon Location<br/>maps + routes]
 
-  FIRMS[NASA FIRMS] --> ING[λ / script firms-ingest] --> S3D[(S3 data layers)]
-  S2[Sentinel-2<br/>AWS Open Data] -.stretch.-> NDVI[ndvi script] -.-> S3D
-  S3D --> DASH
+  FIRMS[NASA FIRMS] --> ING[Lambda: FIRMS ingest] --> S3D[(S3 data layers)]
+  S3D --> CF
 ```
 
----
+**Request path for one WhatsApp message.** The webhook Lambda verifies Meta's signature, drops duplicates and queues the message, then returns immediately, because WhatsApp expects a fast response and a voice note can take several seconds to process. The processor Lambda handles transcription, the agent, booking and the reply. A message that fails three times is moved to the dead-letter queue and raises an alarm.
 
-## 7. How We Used AWS
+Full design, data model and algorithms: [`IMPLEMENTATION.md`](IMPLEMENTATION.md).
 
-### AWS services (deployed: "Ship It")
+## 7. AWS services
 
-| Service | What we use it for | Why |
-|---|---|---|
-| **Amazon Bedrock** *(optional)* | LLM behind the farmer agent when `LLM_PROVIDER=bedrock` (an external LLM API key is the default path) | Managed models, no infra, pay per call |
-| **AWS Lambda** | Webhook, message processor, API, risk scorer, reminders, ingest | Serverless; costs nothing when idle |
-| **Amazon API Gateway (HTTP API)** | WhatsApp webhook and dashboard REST API | Public HTTPS endpoint, JWT authorizer |
-| **Amazon SQS** (+ DLQ) | Decouples webhook from slow processing | Meta needs a fast 200; voice processing takes seconds |
-| **Amazon DynamoDB** | Farmers, fields, balers, buyers, bookings, capacity, conversations | Serverless; transactions prevent double booking |
-| **Amazon Transcribe** | Hindi voice notes to text (`STT_PROVIDER=transcribe`; an OpenAI-compatible speech API also works) | Farmers speak, they don't type |
-| **Amazon Polly** | Text to Hindi voice replies | Accessible for low-literacy users |
-| **Amazon S3** | Voice media, FIRMS and satellite layers, transcripts | Cheap, durable storage |
-| **Amazon EventBridge Scheduler** | Hourly risk scoring, daily reminders (IST timezone) | Managed cron |
-| **Amazon Location Service** | Dashboard map tiles, operator route calculation, village geocoding | AWS-native maps and routing |
-| **Amazon Cognito** | Officer, buyer and operator login, role groups | Managed auth with JWTs |
-| **AWS Amplify Hosting** | React dashboard hosting with CI | One-command hosting |
-| **AWS Systems Manager Parameter Store** | WhatsApp tokens and API keys (SecureString) | No secrets in code |
-| **Amazon CloudWatch** | Logs, metrics, alarms | Debugging and reliability |
+### Deployed services
 
-### AWS open-source tools ("Build It")
+| Service | Use |
+|---|---|
+| **AWS Lambda** | Eight functions (Python 3.12, arm64): webhook, processor, API, risk scorer, offers job, reminders, FIRMS ingest and health |
+| **Amazon API Gateway (HTTP API)** | WhatsApp webhook and dashboard REST API, with a Cognito JWT authorizer |
+| **Amazon SQS** | Inbound message queue with a dead-letter queue, decoupling the webhook from slow processing |
+| **Amazon DynamoDB** | Twelve on-demand tables; transactions prevent double booking |
+| **Amazon Cognito** | Sign-in for officers, buyers and operators, with role groups and self sign-up for applicants |
+| **Amazon Transcribe** | Hindi (hi-IN) speech-to-text for voice notes, directly from the WhatsApp audio file |
+| **Amazon Polly** | Hindi voice replies with the neural voice Kajal |
+| **Amazon EventBridge Scheduler** | Hourly risk scoring, 15-minute offer expiry and daily 6 pm reminders (Asia/Kolkata) |
+| **Amazon S3** | Voice media (deleted after seven days), FIRMS fire layers and the dashboard build |
+| **Amazon CloudFront** + **AWS Certificate Manager** | Dashboard hosting on the custom domain over HTTPS |
+| **AWS Systems Manager Parameter Store** | WhatsApp, LLM and FIRMS secrets as SecureString parameters |
+| **Amazon CloudWatch** + **Amazon SNS** | Logs, alarms on errors and the dead-letter queue, email alerts |
+| **AWS IAM (OIDC)** | GitHub Actions deploys through a role with no stored AWS keys |
+| **Amazon Bedrock** (optional) | LLM for the farmer agent when `LLM_PROVIDER=bedrock` |
+
+### AWS open-source tools
 
 | Tool | Use |
 |---|---|
-| **Strands Agents SDK** | The farmer conversation agent and its tools (`register_field`, `book_pickup`, …) |
-| **AWS SAM CLI** | Infrastructure as code (`template.yaml`), local invoke, one-command deploy |
-| **Powertools for AWS Lambda (Python)** | Structured logging, tracing, idempotency helpers |
-| *(optional)* **LocalStack** | Local DynamoDB/SQS during development |
-| *(optional)* **Cedar** | Fine-grained authorization policies (officer sees own district only) |
+| **Strands Agents SDK** | The farmer conversation agent and its nine tools |
+| **AWS SAM** | Infrastructure as code (`infra/template.yaml`), builds and deploys |
+| **Powertools for AWS Lambda (Python)** | Structured logging and API event handling |
 
-### AWS Open Data (stretch)
+## 8. Tech stack
 
-- **Sentinel-2 L2A COGs** on the AWS Registry of Open Data, used to detect harvest (NDVI drop) for fields not registered in the system.
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.12, Strands Agents SDK, boto3, Powertools for AWS Lambda, Pydantic v2, rapidfuzz, httpx; managed with uv |
+| Infrastructure | AWS SAM (`infra/template.yaml`, `infra/web.yaml`, `infra/ci.yaml`), arm64 Lambda with a dependency layer |
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS v4, MapLibre GL, Recharts, TanStack Query, AWS Amplify Auth, Lenis |
+| Data | NASA FIRMS (VIIRS) fire detections; seeded demo data for one district |
+| Testing | pytest with moto (backend), Vitest (dashboard), Playwright (end-to-end) |
+| CI/CD | GitHub Actions with AWS OIDC |
+| Media | Remotion (explainer animations), Playwright screen recordings, Excalidraw diagrams |
 
----
+## 9. Repository structure
 
-## 8. Tech Stack
-
-- **Backend:** Python 3.12, Strands Agents SDK (OpenAI / Anthropic / Gemini / Bedrock), boto3, Powertools, Pydantic v2, rapidfuzz
-- **Infra:** AWS SAM (`template.yaml`), arm64 Lambdas
-- **Frontend:** React 19 + Vite + TypeScript, Tailwind CSS v4, MapLibre GL (OpenFreeMap or Amazon Location tiles), Recharts, TanStack Query, Amplify Auth; design system in `docs/design-system.md`
-- **Data:** NASA FIRMS (VIIRS), Sentinel-2 (stretch), seeded demo data for one district (Sangrur)
-- **Video:** Remotion + deck.gl screen captures
-
----
-
-## 9. Repository Structure (monorepo)
-
-Everything lives in **one repository**: backend, infra, dashboard, data, satellite and video. The root `Makefile` drives the backend and infra; the dashboard has its own `npm` scripts. One PR can change the API and the dashboard together.
+Everything lives in one repository. The root `Makefile` (or `make.ps1` on Windows) drives the backend and infrastructure; the dashboard has its own `npm` scripts.
 
 ```
 clearsky/
-├── README.md               ← you are here
-├── CONTEXT.md              ← living project context for humans and AI assistants (update after every change)
-├── IMPLEMENTATION.md       ← architecture, flows, data model, algorithms
-├── PLAN.md                 ← phase-wise build plan (for team + Claude Code)
-├── PROGRESS.md             ← per-phase log (created in Phase 0)
-├── CLAUDE.md               ← instructions Claude Code reads automatically
-├── AGENTS.md               ← same rules, for other AI coding tools
-├── Makefile / make.ps1      ← root commands (install, lint, test, build, validate, seed, chat); make.ps1 = Windows
-├── infra/
-│   ├── template.yaml       ← SAM: all AWS resources
-│   └── samconfig.toml
+├── README.md               Project overview (this file)
+├── CONTEXT.md              Living project context, updated after every change
+├── IMPLEMENTATION.md       Architecture, flows, data model, algorithms
+├── PLAN.md                 Phase-wise build plan
+├── PROGRESS.md             Per-phase log
+├── SETUP_GUIDE.md          Step-by-step setup for AWS, WhatsApp, FIRMS and GitHub
+├── CLAUDE.md, AGENTS.md    Rules for AI coding assistants
+├── Makefile, make.ps1      Root commands (macOS/Linux and Windows)
+├── .github/workflows/      Test and deploy pipeline
+├── infra/                  SAM templates: backend, web hosting, CI role
 ├── backend/
-│   ├── pyproject.toml
 │   ├── src/clearsky/
-│   │   ├── config.py           clock.py          logging.py
-│   │   ├── models/             (pydantic models)
-│   │   ├── repo/               (DynamoDB repositories)
-│   │   ├── domain/             (matching.py, pricing.py, risk.py, geo.py, villages.py)
-│   │   ├── agent/              (agent.py, tools.py, prompts.py, memory.py)  ← farmer agent only
-│   │   ├── channels/           (whatsapp.py, voice.py, templates.py)        ← WhatsApp = farmers only
-│   │   ├── handlers/           (webhook.py, processor.py, api.py, risk_job.py, reminders.py, firms_ingest.py, health.py)
-│   │   ├── seed/               (generate.py, load.py)
-│   │   └── local.py            (in-process mock DynamoDB for offline dev)
-│   ├── scripts/            (check_aws.py, gen_seed.py, seed_dynamo.py, chat_cli.py, book_all.py, fetch_firms.py, demo_clock.py)
+│   │   ├── agent/          Farmer agent, tools, prompts, memory, rules bot
+│   │   ├── channels/       WhatsApp, voice, message templates, notifications
+│   │   ├── domain/         Matching, offers, pricing, risk, alerts, impact, registration
+│   │   ├── handlers/       Lambda entry points
+│   │   ├── models/         Pydantic models
+│   │   ├── repo/           DynamoDB repositories
+│   │   └── seed/           Demo data generation and loading
+│   ├── scripts/            Dev server, chat CLI, seeding, FIRMS fetch, AWS checks
 │   └── tests/
-├── data/
-│   ├── seed/               (villages.json, balers.json, buyers.json, farmers.json, fields.json)
-│   └── layers/             (firms_2022_2025.geojson, harvest_grid.geojson)
-├── satellite/              (ndvi_harvest.py — stretch)
-├── dashboard/              (React app: officer, buyer, operator, impact)
-└── video/                  (Remotion project + storyboard)
+├── dashboard/              React app: home, admin, baler, buyer, impact
+├── data/                   Seed data and map layers
+├── docs/                   Design system, runbook, templates, video script, submission
+├── blog/                   Blog post, images and editable Excalidraw diagrams
+├── video/                  Remotion project and screen-recording scripts
+└── scripts/                Secrets and GitHub helper scripts
 ```
 
----
-
-## 10. Getting Started
+## 10. Getting started
 
 ### Prerequisites
 
-- AWS account (Free Tier) with the AWS CLI configured (`aws configure`)
-- Bedrock model access enabled in your region (see `PLAN.md` → Phase 0)
-- [`uv`](https://docs.astral.sh/uv/) (it installs Python 3.12 for the project), Node 20+
-- AWS SAM CLI (optional: `make.ps1` runs it through `uv tool run` if it isn't installed)
-- Meta developer account with a WhatsApp Cloud API **test number**
-- NASA FIRMS MAP_KEY (free)
+- [uv](https://docs.astral.sh/uv/) (installs Python 3.12 for the project) and Node.js 20 or later
+- For deployment only: an AWS account with the AWS CLI configured, the AWS SAM CLI, a Meta developer account with a WhatsApp Cloud API number, and a NASA FIRMS map key
 
-Every command exists twice: `make <target>` on macOS/Linux and `.\make.ps1 <target>` on Windows.
+Every command is available as `make <target>` on macOS and Linux and as `.\make.ps1 <target>` on Windows.
 
-### Setup
+### Run the whole system locally (no AWS, no keys)
 
 ```bash
-git clone <repo> && cd clearsky
-cp .env.example .env            # fill in values (never commit .env); see SETUP_GUIDE.md
+git clone https://github.com/sanskarjoshiii/clearsky.git
+cd clearsky
+cp .env.example .env      # never commit .env
 
-make install                    # uv sync (Python 3.12 venv in backend/.venv)
-make lint && make test          # ruff + mypy, pytest (no AWS needed)
-make check-aws                  # ✅/❌ readiness table (read-only, free)
-
-# the whole system on your machine (no AWS, no keys): API + mock DB + WhatsApp simulator
-make dev                        # terminal 1: backend dev server on :8787
-make dashboard                  # terminal 2: dashboard on http://localhost:5173
-make e2e                        # Playwright smoke tests of the full loop
-make chat                       # farmer agent in the terminal (rules bot, or your LLM via .env)
-make book-all                   # matcher dry run over the seed
-
-# store secrets (WhatsApp, FIRMS) in SSM
-./scripts/put_secrets.sh
-
-# deploy (team approval required; creates AWS resources)
-make validate && make deploy CONFIRM=yes        # Windows: .\make.ps1 deploy -Confirm yes
-make seed                       # load the seed into the deployed tables (deletes existing items)
-
-# dashboard (Phase 7)
-cd dashboard && npm i && npm run dev
+make install              # Python environment in backend/.venv
+make dev                  # terminal 1: API on :8787 with a mock database, seed data and WhatsApp simulator
+make dashboard            # terminal 2: dashboard on http://localhost:5173
 ```
 
-### Connect WhatsApp
+Local sign-in uses the dev login: `/admin/login`, `/baler/login` and `/buyer/login`. The farmer side runs through the WhatsApp simulator docked in the admin dashboard, or in the terminal with `make chat`.
 
-1. Meta App → WhatsApp → Configuration → Webhook URL = `<ApiUrl>/webhook/whatsapp`, verify token = `WA_VERIFY_TOKEN`.
-2. Subscribe to the `messages` field.
-3. Add your team's phone numbers as test recipients (test numbers allow up to 5). These act as demo **farmers**; operators use the dashboard, not WhatsApp.
-4. Create message templates `pickup_reminder` and `village_alert` (needed for messages sent outside the 24-hour window).
+### Quality checks
 
----
+```bash
+make lint                 # ruff and mypy
+make test                 # pytest (no AWS needed)
+make e2e                  # Playwright smoke tests of the full loop
+cd dashboard && npm run typecheck && npx vitest run
+```
+
+### Other targets
+
+| Target | Purpose |
+|---|---|
+| `make chat` | Farmer agent in the terminal (rules bot, or the LLM configured in `.env`) |
+| `make book-all` | Matcher dry run over the seed data |
+| `make gen-seed` / `make seed` | Generate seed data / load it into the deployed tables (replaces existing items) |
+| `make firms` | Fetch NASA FIRMS fire history |
+| `make check-aws` | Read-only readiness check of the AWS account |
+| `make dev-cloud` | Local API with real WhatsApp (tunnel the webhook with ngrok) |
+| `make validate` / `make build` | Validate and build the SAM application |
 
 ## 11. Configuration
 
-| Variable | Example | Purpose |
-|---|---|---|
-| `AWS_REGION` | `ap-south-1` | Deployment region |
-| `BEDROCK_MODEL_ID` | *(team decides)* | Agent model |
-| `WA_PHONE_NUMBER_ID` | SSM | WhatsApp sender |
-| `WA_ACCESS_TOKEN` | SSM | Graph API token |
-| `WA_APP_SECRET` | SSM | Webhook signature check |
-| `WA_VERIFY_TOKEN` | SSM | Webhook verification |
-| `WA_API_VERSION` | `v23.0` (verify) | Graph API version |
-| `FIRMS_MAP_KEY` | SSM | NASA FIRMS |
-| `TRANSCRIBE_LANGUAGE` | `hi-IN` | Voice language |
-| `POLLY_VOICE` | `Kajal` | Voice reply |
-| `TONNES_PER_ACRE` | `2.5` | Straw yield estimate |
-| `SOWING_WINDOW_DAYS` | `20` | Default harvest → sowing |
-| `SEASON_SOWING_CUTOFF` | `2026-11-15` | Hard cutoff |
-| `DEMO_MODE` | `true` | Enables simulated clock |
+Configuration is read from environment variables locally and from SSM Parameter Store when deployed. Secrets are never committed.
 
-Full list: `IMPLEMENTATION.md` §13.
-
----
-
-## 12. Demo Script (3 min)
-
-| Time | Scene |
+| Variable | Purpose |
 |---|---|
-| 0:00–0:20 | Fire map at 1:30 pm (few dots), clock spins to 5 pm, map erupts. *"The satellite looks away. The smoke doesn't."* |
-| 0:20–0:45 | Split screen: farmer with straw and a countdown, plant with an empty yard. *"Not a pollution problem. A logistics problem."* |
-| 0:45–1:50 | Real phone: farmer voice note → voice reply → booking. Operator dashboard shows the new stop. Buyer forecast. Animated trucks (deck.gl TripsLayer). |
-| 1:50–2:20 | Burn Risk Radar: red fields, "Alert village", turns green. |
-| 2:20–2:40 | AWS architecture lights up along one message's path. |
-| 2:40–3:00 | Impact counters. Closing line. |
+| `AWS_REGION` | Deployment region (`ap-south-1`) |
+| `LLM_PROVIDER` | `rules`, `openai`, `anthropic`, `gemini` or `bedrock` |
+| `WA_PHONE_NUMBER_ID`, `WA_ACCESS_TOKEN` | WhatsApp sender and Graph API token (SSM) |
+| `WA_APP_SECRET`, `WA_VERIFY_TOKEN` | Webhook signature check and verification (SSM) |
+| `FIRMS_MAP_KEY` | NASA FIRMS access (SSM) |
+| `TRANSCRIBE_LANGUAGE` | Voice language, `hi-IN` |
+| `POLLY_VOICE` | Voice reply, `Kajal` |
+| `TONNES_PER_ACRE` | Straw yield estimate |
+| `SOWING_WINDOW_DAYS`, `SEASON_SOWING_CUTOFF` | Harvest-to-sowing window and the season's hard cutoff |
+| `OFFER_SLA_MINUTES`, `OFFER_MAX_ATTEMPTS` | Baler response time and number of balers tried |
+| `EMISSION_FACTORS` | Sourced emission factors for the impact calculation (see section 13) |
+| `DEMO_MODE` | Enables the simulated clock |
 
----
+Full list: [`IMPLEMENTATION.md`](IMPLEMENTATION.md) section 13 and `.env.example`.
 
-## 13. Impact Metrics (shown live)
+## 12. Deployment
 
-- Acres registered / booked / cleared
-- Tonnes of straw routed to buyers
-- Total farmer payouts (₹)
-- Fields moved from RED to GREEN after officer alerts
-- Estimated pollution avoided per cleared field and in total (PM2.5 and other pollutants), computed only from published emission factors that the team configures with their citation; shown as estimates with the source next to every number
+Every push to `main` runs the GitHub Actions pipeline in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
----
+1. **Test:** backend lint, type checks and tests; dashboard type check and tests.
+2. **Deploy:** the SAM backend stack, then the dashboard build to S3 with a CloudFront invalidation.
 
-## 14. Roadmap
+AWS access uses GitHub OIDC and the IAM role defined in [`infra/ci.yaml`](infra/ci.yaml), so no AWS keys are stored in GitHub. Application secrets stay in SSM Parameter Store and are never touched by the pipeline.
 
-- Punjabi voice replies (when a TTS voice is available)
-- Satellite harvest detection across a whole district, with Sentinel-1 radar for haze days
-- Combine-harvester operator reporting
-- Payment rails (UPI payouts) and buyer contracts
-- State and CAQM data integration; multi-district rollout
-- Wheat-residue season support
+Manual deployment requires team approval and is guarded:
 
----
+```bash
+make validate
+make deploy CONFIRM=yes          # Windows: .\make.ps1 deploy -Confirm yes
+```
 
-## 15. Team
+### Connecting WhatsApp
 
-| Member | Owns |
-|---|---|
-| Akshay | WhatsApp farmer bot + agent |
-| P2 | Matcher, bookings, data, REST API |
-| P3 | Dashboard (radar, buyer, operator) |
-| P4 | Video, blog, testing |
+1. In the Meta app, set the webhook URL to `<ApiUrl>/webhook/whatsapp` with the verify token from SSM.
+2. Subscribe to the `messages` field.
+3. Add test recipients (these act as demo farmers).
+4. Create the message templates `pickup_reminder` and `village_alert`, required for messages outside the 24-hour window. Template text: [`docs/whatsapp_templates.md`](docs/whatsapp_templates.md).
 
----
+## 13. Impact and emission factors
 
-## 16. Sources
+When a baler marks a field done, clearsky records the straw that was not burnt and, if configured, the pollution avoided:
 
-- Tribune: Satellites miss majority of stubble fires (iFOREST report): https://www.tribuneindia.com/news/delhi/satellites-miss-majority-of-stubble-fires-delhi-air-pollution-underestimated-report
-- Tribune: Farm fires down as season nears end: https://www.tribuneindia.com/news/punjab/farm-fires-down-to-50-as-season-nears-end
-- Tribune: Lok Sabha reply on farm fires: https://www.tribuneindia.com/news/india/punjab-haryana-record-90-per-cent-fewer-farm-fire-incidents-in-2025-govt-in-lok-sabha/amp
-- ICC / Vedanta TSPL: paddy straw supply chain: https://iccwbo.org/news-publications/guest-blog/the-last-straw-indias-burning-fields-turn-into-an-energy-opportunity/
-- Outlook Business: evening burning detection gap: https://www.outlookbusiness.com/news/punjab-haryana-evening-stubble-burning-detection-gap-delhi-pollution
+```
+pollution avoided (kg) = straw not burnt (tonnes) x emission factor (kg per tonne burnt)
+```
 
-### Emission factors (pollution avoided)
+**No emission factor is hard-coded.** Each factor in `EMISSION_FACTORS` must carry its source citation; a factor without a source is ignored, and until one is set, the dashboards show no pollution figures. Impact is shown on the admin Impact page and the public `/impact` page.
 
-**Not chosen yet.** clearsky ships with no emission factor and shows no pollution figure until the team sets `EMISSION_FACTORS` (see `IMPLEMENTATION.md` §5b and `.env.example`). When the factors are agreed, record each one here, and have a second teammate check the value against the paper:
+When the team agrees on factors, record them here and have a second teammate check each value against the paper:
 
-| Pollutant | Value (kg per tonne of rice straw burnt in the open) | Source (author, year, journal, table/page) | Link | Checked by |
+| Pollutant | Value (kg per tonne of rice straw burnt in the open) | Source (author, year, journal, table or page) | Link | Checked by |
 |---|---|---|---|---|
-| PM2.5 | _to be filled_ | | | |
-| (others: PM10, CO, CO₂, black carbon) | | | | |
+| PM2.5 | Not set | | | |
+| PM10, CO, CO₂, black carbon | Not set | | | |
+
+## 14. Documentation
+
+| Document | Contents |
+|---|---|
+| [`CONTEXT.md`](CONTEXT.md) | Current state, decisions, open questions and changelog |
+| [`IMPLEMENTATION.md`](IMPLEMENTATION.md) | Design source of truth: architecture, data model, algorithms |
+| [`PLAN.md`](PLAN.md) / [`PROGRESS.md`](PROGRESS.md) | Build plan and per-phase progress |
+| [`SETUP_GUIDE.md`](SETUP_GUIDE.md) | Account, key and service setup |
+| [`docs/demo_runbook.md`](docs/demo_runbook.md) | Live demo runbook |
+| [`docs/design-system.md`](docs/design-system.md) | Dashboard design system |
+| [`blog/clearsky-blog.md`](blog/clearsky-blog.md) | Project write-up with diagrams |
+
+## 15. Roadmap
+
+- Punjabi voice replies when a suitable text-to-speech voice is available
+- Satellite harvest detection with Sentinel-2 (NDVI) and Sentinel-1 radar for hazy days
+- UPI payouts to farmers and formal buyer contracts
+- Integration with state and CAQM data; multi-district rollout
+- Support for the wheat-residue season
+
+## 16. Team
+
+**Team Atherion**
+
+| Member | Contribution |
+|---|---|
+| Sanskar Joshi | Core system, WhatsApp agent and deployment |
+| Kamran Pathan | Dashboards and AWS backend |
+| Akshay | AI model and pollution impact view |
+| Anushka | Emission factor method and approvals |
+
+## 17. Sources
+
+- Fire timing, satellite pass times and burnt area: iFOREST *Stubble Burning Status Report 2025*, via The Tribune, 9 December 2025. https://www.tribuneindia.com/news/delhi/satellites-miss-majority-of-stubble-fires-delhi-air-pollution-underestimated-report
+- 2025 fire count and crop-residue machines: The Tribune, 25 November 2025. https://www.tribuneindia.com/news/punjab/farm-fires-down-to-50-as-season-nears-end
+- Custom hiring centres: PTI via The Week, 20 April 2025. https://www.theweek.in/wire-updates/national/2025/04/20/des20-pb-stubble-plan.amp.html
+- Straw used in industrial boilers and pellet plants: The Tribune, 17 September 2024. https://www.tribuneindia.com/news/punjab/to-counter-stubble-burning-punjab-govt-pushes-green-fuel-initiative
+- Fire history: NASA FIRMS (VIIRS), October to November 2022–2025.
+
+Screenshots and seed data are synthetic demo data; no real farmer data is included in this repository.
 
 ## License
 

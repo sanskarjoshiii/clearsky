@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; }
+  .cover { position: relative; width: 1600px; height: 840px; overflow: hidden; font-family: Inter, sans-serif; color: #fff; background: #173d42; }
+  .photo { position: absolute; inset: 0; background: url("COVER_SRC") center 60% / cover; transform: scale(1.04); }
+  .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10, 32, 34, 0.94) 0%, rgba(10, 32, 34, 0.82) 38%, rgba(10, 32, 34, 0.25) 70%, rgba(10, 32, 34, 0.1) 100%); }
+  .inner { position: absolute; left: 88px; top: 80px; width: 900px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand img { width: 54px; height: 54px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(255,255,255,.25); }
+  .brand span { font-family: "Bricolage Grotesque"; font-weight: 800; font-size: 34px; letter-spacing: -0.03em; }
+  h1 { font-family: "Bricolage Grotesque"; font-weight: 800; font-size: 82px; line-height: 0.98; letter-spacing: -0.03em; margin: 54px 0 0; }
+  h1 em { font-style: normal; color: #96d631; }
+  p { font-size: 25px; line-height: 1.4; color: rgba(255,255,255,.86); margin: 28px 0 0; max-width: 760px; }
+  .chips { display: flex; gap: 12px; margin-top: 34px; }
+  .chip { padding: 10px 18px; border-radius: 999px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); font-size: 18px; font-weight: 600; backdrop-filter: blur(6px); }
+  .chip.lime { background: #96d631; color: #173d42; border-color: #96d631; }
+  .foot { position: absolute; right: 56px; bottom: 44px; font-size: 18px; font-weight: 500; color: rgba(255,255,255,.85); text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+</style>
+</head>
+<body>
+  <div class="cover" id="cover">
+    <div class="photo"></div>
+    <div class="shade"></div>
+    <div class="inner">
+      <div class="brand"><img src="LOGO_SRC" alt="" /><span>clearsky</span></div>
+      <h1>The fire starts at <em>5 pm.</em><br />The satellite left at 1:30.</h1>
+      <p>How we built a WhatsApp straw pickup that gets a paddy field cleared before anyone strikes a match, fully serverless on AWS.</p>
+      <div class="chips">
+        <span class="chip lime">AI agent on WhatsApp</span>
+        <span class="chip">Serverless on AWS</span>
+        <span class="chip">Team Atherion</span>
+      </div>
+    </div>
+    <div class="foot">AWS Environmental Hacks 2026 · Air · Waste &amp; Energy</div>
+  </div>
+</body>
+</html>

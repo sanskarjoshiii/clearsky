@@ -13,6 +13,15 @@ The animation that plays on the right half of the screen while the presenter exp
 | `3d-aws.mp4` | `src/scenes/S4Aws.tsx` | 11 s | 0:58–1:09 | Lanes: messages (API Gateway, Lambda, SQS) → voice (Transcribe, Polly) → bookings (DynamoDB transaction race) → hourly (EventBridge Scheduler) |
 | `3e-before-after.mp4` | `src/scenes/S5Impact.tsx` | 6 s | 1:09–1:15 | Before (calls, waiting, fire) vs with clearsky (one message, confirmed, paid) → "Change what happens on the bad days." |
 
+## Transparent overlay: impact line (10 s)
+
+`S6-ImpactOverlay` (`src/scenes/S6ImpactOverlay.tsx`), 1920×1080, **no background**, for the line *"Our system reduces stubble burning by sending straw to industries instead of burning it in the fields. This means less smoke, cleaner air, and fewer people exposed to harmful pollution."* Burning field → straw bales → industry (0–4 s), less smoke and cleaner air (4–6.5 s), fewer people exposed (6.5–10 s).
+
+```bash
+npx remotion render S6-ImpactOverlay out/impact-overlay-png --sequence --image-format=png   # 300 RGBA PNGs
+ffmpeg -framerate 30 -i out/impact-overlay-png/element-%03d.png -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le out/impact-overlay-alpha.mov
+```
+
 ## Before rendering: `src/content.ts`
 
 - `problemStat`: an optional **sourced** number for the Delhi air-quality card (value, label, source). Leave it `null` until the team has a citation; no number is shown then.

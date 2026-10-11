@@ -45,3 +45,6 @@ video/node_modules
 # raw video masters (web renditions live in dashboard/public/home/)
 /home_page_video.mp4
 /introvideo.mp4
+
+# live demo logins for the screen recorder (never commit)
+video/screen/accounts.local.json
