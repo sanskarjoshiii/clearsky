@@ -184,7 +184,11 @@ def test_operator_update(api: None) -> None:
 
 
 def test_operator_schedule_and_history(api: None) -> None:
-    bk = confirmed_booking()
+    # the earliest pickup, so it falls inside the 14-day schedule window (scan order is random)
+    bk = min(
+        (b for b in BookingsRepo().list_all() if b.status == BookingStatus.CONFIRMED),
+        key=lambda b: (b.date, b.booking_id),
+    )
     token = operator(bk.baler_id)
     days = call("GET", "/api/operator/me/schedule", token=token, query={"days": "14"})[1]["days"]
     assert len(days) == 14 and days[0]["date"] == "2026-10-20"
