@@ -133,6 +133,7 @@ How to get each answer, step by step: **`SETUP_GUIDE.md`** (it ends with a fill-
 
 ## 7. Changelog (newest first)
 
+- 2026-10-11 · Claude Code · Credit: Anushka Salvi (@anushkasalvi23) co-authored the CONTEXT note that the overnight commits still needed a git push (commit `488fc21`, 2026-10-09) · `CONTEXT.md`
 - 2026-10-11 · Claude Code · Credit: Anushka Salvi (@anushkasalvi23) co-authored the separate admin, baler and buyer apps with role-based routing (#2, commit `8aa16c7`, 2026-10-09) · `CONTEXT.md`
 - 2026-10-11 · Claude Code · README rewritten as a professional overview (no emojis): verified against infra and config (8 functions, 12 tables, CloudFront + S3 hosting instead of Amplify, no Amazon Location), current features (offers, auto re-matching, approvals, admin Impact), CI/CD, verified sources, Team Atherion roles · `README.md`
 - 2026-10-11 · Claude Code · Fixed flaky `test_operator_schedule_and_history` (failed the CI deploy run 38114764139): it took the first CONFIRMED booking in random scan order, sometimes one dated after the 14-day schedule window; it now takes the earliest · `backend/tests/test_api.py`
