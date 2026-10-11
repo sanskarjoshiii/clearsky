@@ -4,6 +4,7 @@ import { AppNotFound } from "../../components/NotFound";
 import { AdminLayout } from "./Layout";
 import { Approvals } from "./pages/Approvals";
 import { Demo } from "./pages/Demo";
+import { Impact } from "./pages/Impact";
 import { Radar } from "./pages/Radar";
 import { Balers, Bookings, Buyers, Fields } from "./pages/Tables";
 
@@ -19,6 +20,7 @@ export function Component() {
         <Route path="balers" element={<Balers />} />
         <Route path="buyers" element={<Buyers />} />
         <Route path="approvals" element={<Approvals />} />
+        <Route path="impact" element={<Impact />} />
         {me?.config.demo_mode ? <Route path="demo" element={<Demo />} /> : null}
         <Route path="*" element={<AppNotFound home="/admin" />} />
       </Route>

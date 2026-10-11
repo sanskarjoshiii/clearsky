@@ -35,7 +35,7 @@ export function AdminLayout() {
     { to: "/admin/buyers", label: "Buyers", icon: Factory },
     { to: "/admin/approvals", label: "Approvals", icon: UserCheck, badge: pending },
     ...(me?.config.demo_mode ? [{ to: "/admin/demo", label: "Demo controls", short: "Demo", icon: FlaskConical }] : []),
-    { to: "/impact", label: "Impact", icon: BarChart3 },
+    { to: "/admin/impact", label: "Impact", icon: BarChart3 },
   ];
 
   return (

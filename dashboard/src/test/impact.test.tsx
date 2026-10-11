@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ImpactFactor, ImpactTableData } from "../api/types";
 import { ImpactTable } from "../components/ImpactTable";
 import { Sparkline } from "../components/Sparkline";
-import { headline, impactAmount, inUnit } from "../lib/impact";
+import { headline, impactAmount, inUnit, perAcre } from "../lib/impact";
 
 // TEST VALUES, not real emission factors (clearsky ships with none).
 const FACTORS: Record<string, ImpactFactor> = {
@@ -70,6 +70,21 @@ describe("impact units", () => {
     expect(headline({ pm25: 40 }, {})).toBeNull();
     expect(headline(null, FACTORS)).toBeNull();
     expect(headline({ pm25: 40 }, undefined)).toBeNull();
+  });
+});
+
+describe("perAcre", () => {
+  it("divides the district total by the cleared acres, per pollutant", () => {
+    const rates = perAcre(table());
+    expect(rates.map((r) => [r.key, r.kg])).toEqual([
+      ["pm25", 5],
+      ["co2", 2500],
+    ]);
+  });
+  it("is empty when nothing is configured or cleared", () => {
+    expect(perAcre(table({ configured: false }))).toEqual([]);
+    expect(perAcre(table({ district: { label: "d", fields: 0, acres: 0, tonnes: 0, impact: {}, trend: [] } }))).toEqual([]);
+    expect(perAcre(undefined)).toEqual([]);
   });
 });
 
